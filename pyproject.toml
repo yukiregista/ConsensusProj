@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "Consensus"
+version = "0.0.1"
+authors = [
+  { name="Yuki Takazawa", email="yuki-takazawa@g.ecc.u-tokyo.ac.jp" },
+]
+description = "Implementation of consensus methods."
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = ["numpy", "pandas", "scipy", "matplotlib", "dendropy", "bitstring", "biopython"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/yukiregista/ConsensusProj"
+
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["Consensus"]
