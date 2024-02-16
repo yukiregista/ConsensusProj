@@ -673,11 +673,13 @@ class Tree_with_support(dendropy.Tree):
         res, reduction_list = quartet_pruning(self_copy, treelist, parent_dir)
         return res
     
-    def BS_prune(self, threshold=0.5):
+    def BS_prune(self, treelist, threshold=0.5):
         """Prune all edges that has branch support <= threshold.
 
         Parameters
         ----------
+        treelist : TreeList_with_support
+            Input trees to compute branch support
         threshold : float, optional
             Threshold of branch support, by default 0.5
 
@@ -687,7 +689,7 @@ class Tree_with_support(dendropy.Tree):
             Thresholded consensus
         """
         if self.bootstrap_support is None:
-            self.compute_bootstrap()
+            self.compute_bootstrap(treelist)
         
         bipars = []; bootstrap_support = dict(); TBE_support = dict()
         for node in self.postorder_node_iter():
