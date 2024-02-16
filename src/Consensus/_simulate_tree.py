@@ -72,7 +72,7 @@ def normalize_tree_with_lognormal(tree, height = 0.05, lognormal_mean=1, lognorm
     # compute lognormal parameter
     lognormal_var = lognormal_std**2
     scale2 = np.log(lognormal_var / lognormal_mean + 1)
-    scale = np.log(scale2)
+    scale = np.sqrt(scale2)
     mu = np.log(lognormal_mean) - scale2 / 2
     
     tt =tree.clone(depth=1)
