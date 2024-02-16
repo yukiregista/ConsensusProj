@@ -52,7 +52,7 @@ def _get_newick(node, parent_dist, leaf_names, newick='') -> str:
         newick = "(%s" % (newick)
         return newick
 
-def TBE(bipartitions, treelist):
+def TBE(bipartitions, treelist):＝
     """Compute TBE of given set of bipartitions against input trees.
 
     Parameters
