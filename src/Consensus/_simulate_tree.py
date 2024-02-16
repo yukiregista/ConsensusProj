@@ -2,6 +2,10 @@ import dendropy
 import random
 import numpy as np
 
+import sys
+sys.setrecursionlimit(10000)
+
+
 def birthdeath_sampling(n_taxa=100, birth_rate = 0.1, death_rate = 0.1, gsa_prop = 10, seed = None) -> dendropy.Tree:
     """Implements the general sampling approach using birth-death model and returns unrooted tree.
 
