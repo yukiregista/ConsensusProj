@@ -81,7 +81,7 @@ def normalize_tree_with_lognormal(tree, height = 0.05, lognormal_mean=1, lognorm
     maxdist = tt.max_distance_from_root()
     for edge in tt.postorder_edge_iter():
         if edge.length is not None:
-            edge.length = edge.length/(maxdist) * length
+            edge.length = edge.length/(maxdist) * height
             edge.length = edge.length * np.random.lognormal(mean=mu, sigma=scale)
     
     # reroot at one of the internal node, suppress unifications, make it unrooted
