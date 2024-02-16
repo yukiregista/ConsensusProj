@@ -41,10 +41,6 @@ def birthdeath_sampling(n_taxa=100, birth_rate = 0.1, death_rate = 0.1, gsa_prop
     t.purge_taxon_namespace()
     t.seed_node.edge_length=None
     
-    # reroot at one of the internal node, suppress unifications, make it unrooted
-    t.reroot_at_node(tt.seed_node.child_nodes()[0],collapse_unrooted_basal_bifurcation=False)
-    t.is_rooted=False
-    
     return t
 
 def normalize_tree_with_lognormal(tree, height = 0.05, lognormal_mean=1, lognormal_std=0.5) -> dendropy.Tree:
@@ -83,5 +79,9 @@ def normalize_tree_with_lognormal(tree, height = 0.05, lognormal_mean=1, lognorm
         if edge.length is not None:
             edge.length = edge.length/(maxdist) * length
             edge.length = edge.length * np.random.lognormal(mean=mu, sigma=scale)
+    
+    # reroot at one of the internal node, suppress unifications, make it unrooted
+    tt.reroot_at_node(tt.seed_node.child_nodes()[0],collapse_unrooted_basal_bifurcation=False)
+    tt.is_rooted=False
     return tt
     
