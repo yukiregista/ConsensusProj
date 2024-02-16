@@ -52,7 +52,7 @@ def _get_newick(node, parent_dist, leaf_names, newick='') -> str:
         newick = "(%s" % (newick)
         return newick
 
-def TBE(bipartitions, treelist):＝
+def TBE(bipartitions, treelist):
     """Compute TBE of given set of bipartitions against input trees.
 
     Parameters
@@ -233,6 +233,223 @@ def _minDist(refinfo_b, tree):
                     return d
     
     return d
+
+def quartet_resolution(tree, parent_dir = None, normalized=True):
+    
+    if parent_dir is None:
+        conname = "__" + _randomname(10) + ".nwk"
+        conname2 = "__" + _randomname(10) + ".nwk"
+    else:
+        conname = parent_dir + "/__" + _randomname(10) + ".nwk"
+        conname2 = "__" + _randomname(10) + ".nwk"
+    tree.write(path = conname, schema="newick", suppress_rooting=True)
+    tree.write(path = conname2, schema="newick", suppress_rooting=True)
+    p= subprocess.run(["quartet_dist", "-v", conname, conname2],capture_output=True, text=True)
+    keys = ["number_of_leaves", "number_of_all_quartets", "quartet_dist", "normalized_quartet_dist", "number_of_resolved_quartets_agreed", 
+            "normalized_number_of_resolved_quartets_agreed", "number_of_unresolved_quartets_agreed", "normalized_number_of_unresolved_quaretets_agreed"]
+    items = [float(item) for item in p.stdout.split()]
+    q_dict = dict(zip(keys, items))
+    print("deleting now", flush=True)
+    for item in [conname,conname2]:
+        if os.path.exists(item):
+            os.remove(item)
+    if normalized:
+        return (q_dict["number_of_all_quartets"] - q_dict["number_of_unresolved_quartets_agreed"])/q_dict["number_of_all_quartets"]
+    else:
+        return (q_dict["number_of_all_quartets"] - q_dict["number_of_unresolved_quartets_agreed"])
+
+def tqdist_fp_fn(estimate, true, parent_dir = None):
+    executable_name = 'pairs_quartet_dist'
+    executable_path = shutil.which(executable_name)
+    if executable_path is None:
+        sys.exit(f"Error: '{executable_name}' not found. You need to install tqDist package on your PATH.")
+    else:
+        #print(f"Using executable '{executable_name}' found at {executable_path}...")
+        pass
+        # Proceed with execution
+    if parent_dir is None:
+        estimatename = "__" + _randomname(10) + ".nwk"
+        truename = "__" + _randomname(10) + ".nwk"
+    else:
+        estimatename = os.path.join(parent_dir,  "__" + _randomname(10) + ".nwk")
+        truename = os.path.join(parent_dir, "__" + _randomname(10) + ".nwk")
+    
+    estimate.write(path = estimatename, schema="newick", suppress_rooting=True)
+    true.write(path = truename, schema="newick", suppress_rooting=True)   
+    
+    p= subprocess.run(["quartet_dist", "-v", estimate, true],capture_output=True, text=True)
+    keys = ["number_of_leaves", "number_of_all_quartets", "quartet_dist", "normalized_quartet_dist", "number_of_resolved_quartets_agreed", 
+            "normalized_number_of_resolved_quartets_agreed", "number_of_unresolved_quartets_agreed", "normalized_number_of_unresolved_quaretets_agreed"]
+    items = [float(item) for item in p.stdout.split()]
+    tqdist_dict = dict(zip(keys, items))
+    
+    for item in [estimatename,truename]:
+        if os.path.exists(item):
+            os.remove(item)
+
+    
+    # check resolution
+    estimate_num_resolved = quartet_resolution(estimate, parent_dir=parent_dir, normalized=False)
+    estimate_num_unresolved = tqdist_dict["number_of_all_quartets"] - estimate_num_resolved
+    true_num_resolved = quartet_resolution(true, parent_dir=parent_dir, normalized=False)
+    true_num_unresolved = tqdist_dict["number_of_all_quartets"] - true_num_resolved
+    
+    # compute number of each component
+    unresolved_resolved_fn = estimate_num_unresolved -  tqdist_dict["number_of_unresolved_quartets_aggreed"]
+    resolved_unresolved_fp = true_num_unresolved -  tqdist_dict["number_of_unresolved_quartets_aggreed"]
+    resolved_resolved_disagree = estimate_num_resolved - resolved_unresolved_fp - tqdist_dict['number_of_resolved_quartets_aggreed']
+    assert resolved_resolved_disagree == (true_num_resolved - unresolved_resolved_fn - tqdist_dict['number_of_resolved_quartets_aggreed'])
+    
+    # compute fn and fp
+    fn = unresolved_resolved_fn + resolved_resolved_disagree
+    fp = resolved_unresolved_fp + resolved_resolved_disagree
+    return fp, fn
+    
+
+
+def tqdist_fp_fn2(consensus_tree, input_trees_string, n_trees, parent_dir = None):
+    # consensus_tree: one tree: can be non-binary
+    # input_trees_string: Newick String of trees: ASSUMED TO BE BINARY
+    # n_trees: number of input treess
+    
+    n = n_trees # number of input trees
+    
+
+    executable_name = 'pairs_quartet_dist'
+    executable_path = shutil.which(executable_name)
+
+    if executable_path is None:
+        sys.exit(f"Error: '{executable_name}' not found. You need to install tqDist package on your PATH.")
+    else:
+        #print(f"Using executable '{executable_name}' found at {executable_path}...")
+        pass
+        # Proceed with execution
+
+    if parent_dir is None:
+        conname = "__" + _randomname(10) + ".nwk"
+        consname = "__" + _randomname(10) + ".nwk"
+        inputname = "__" + _randomname(10) + ".nwk"
+    else:
+        conname = os.path.join(parent_dir,  "__" + _randomname(10) + ".nwk")
+        consname = os.path.join(parent_dir, "__" + _randomname(10) + ".nwk")
+        inputname = os.path.join(parent_dir , "__" + _randomname(10) + ".nwk")
+
+    try:
+        consensus_tree.write(path=conname, schema="newick", suppress_rooting = True)
+        # write n * consensus trees 
+        consensus_nwk_str = consensus_tree.as_string(schema="newick", suppress_rooting = True)
+        with open(consname, "w") as f:
+            f.write(consensus_nwk_str*n)
+        
+        #write input trees
+        with open(inputname, "w") as f:
+            f.write(input_trees_string)
+        #input_trees.write(path = "__tmp__input.nwk", schema="newick", suppress_rooting=True)
+
+        # run pairs_quartet_dist
+        p= subprocess.run(["pairs_quartet_dist", "-v", consname, inputname],capture_output=True, text=True)
+        if p.stderr != '':
+            print("error executing tqdist:", p.stderr)
+            sys.exit(1)
+        quartet_dist_list = [float(item) for item in p.stdout.split()][2::8]
+        quartet_dists = np.array(quartet_dist_list)
+
+        # get number of unresolved quartet trees
+        p2 = subprocess.run(["pairs_quartet_dist", "-v", conname, conname],capture_output=True, text=True)
+        if p2.stderr != '':
+            print("error executing tqdist:", p2.stderr)
+            sys.exit(1)
+        num_unresolved = [float(item) for item in p2.stdout.split()][6]
+
+        num_unmatched_resolved = quartet_dists - num_unresolved # length n
+        
+        fn = quartet_dists # =  num_unresolved + num_unmatched_resolved
+        fp = num_unmatched_resolved
+        
+        for item in [conname, consname, inputname]:
+            if os.path.exists(item):
+                os.remove(item)
+        
+    except:
+        # delete temporary file
+        for item in [conname, consname, inputname]:
+            if os.path.exists(item):
+                os.remove(item)
+        print("Error computing quartet distance.")
+        sys.exit(1)
+
+    return fp, fn
+  
+
+def quartet_loss2(consensus_tree, input_trees_string, n_trees, normalized=True, parent_dir = None):
+    # use tqdist's `pairs_quartet_dist` function
+    fp, fn = tqdist_fp_fn2(consensus_tree, input_trees_string, n_trees, parent_dir) # fp, fn are ndarrays of length n=len(input_trees)
+    loss = np.sum(fp+fn)
+    if normalized:
+        loss = loss/n_trees
+    return loss
+
+def quartet_pruning(consensus_tree, input_trees, parent_dir=None):
+    bipartitions = np.array(consensus_tree.encode_bipartitions())
+    bipartition_ints = np.array([bipartition.split_as_int() for bipartition in bipartitions])
+    internal_edges = consensus_tree.internal_edges(exclude_seed_edge=True)
+    internal_bipartitions = np.array([edge.bipartition for edge in internal_edges])
+    internal_bipartition_ints = np.array([bipartition.split_as_int() for bipartition in internal_bipartitions])
+    internal_edge_dict = {edge.bipartition.split_as_int():edge for edge in internal_edges}
+
+    #external_bipartition_dict = {bipar_int: all_bipartition_dict[bipar_int] for bipar_int in all_bipartition_dict.keys() if bipar_int not in internal_bipartitions}
+    #external_bipartitions = np.array(list(external_bipartition_dict.values()))
+
+    #mask = [True for i in range(len(bipartitions))]
+    taxon_namespace = consensus_tree.taxon_namespace
+    trees_string = input_trees.as_string("newick", suppress_rooting=True)
+    n_trees = len(input_trees)
+    current_loss = quartet_loss2(consensus_tree, trees_string, n_trees, False, parent_dir)
+    next_updates = internal_bipartition_ints
+    #best_mask = [True for i in range(len(bipartitions))]
+    loss_reduction_dict = {bipar_int: 0 for bipar_int in internal_bipartition_ints}
+    iteration = 0
+    reduction_list = []
+    while True:
+        iteration += 1
+        st = time.time()
+        for bipar_int in next_updates:
+            if bipar_int in internal_bipartition_ints:
+                mask = bipar_int!=bipartition_ints
+                pruned_tree = dendropy.Tree.from_bipartition_encoding(bipartitions[mask], taxon_namespace=taxon_namespace)
+                loss = quartet_loss2(pruned_tree, trees_string, n_trees, False, parent_dir)
+                # if current_loss - loss > 0:
+                #     print(f"loss_reduction of {bipar_int}: ", current_loss - loss)
+                loss_reduction_dict[bipar_int] = current_loss - loss # if risk reduction happends, this is a positive value
+        
+        # look for edge that induces maximum risk reduction
+        max_key = max(loss_reduction_dict, key=loss_reduction_dict.get)
+        max_value = loss_reduction_dict[max_key]
+        # print(f"{max_key} will be pruned")
+        renew = (max_value > 0) # if renew = True, prune. otherwise, don't prune.
+        if not renew:
+            break # the current `consensus_tree` is the best
+        # if renew, we continue
+
+        ## update next_updates
+        next_updates = [edge.bipartition.split_as_int() for edge in internal_edge_dict[max_key].adjacent_edges]
+        # print(next_updates)
+        ## update other variables
+        best_mask = max_key!=bipartition_ints
+        consensus_tree = dendropy.Tree.from_bipartition_encoding(bipartitions[best_mask], taxon_namespace=taxon_namespace)
+        bipartitions = np.array(consensus_tree.encode_bipartitions())
+        bipartition_ints = np.array([bipartition.split_as_int() for bipartition in bipartitions])
+        internal_edges = consensus_tree.internal_edges(exclude_seed_edge=True)
+        internal_bipartitions = np.array([edge.bipartition for edge in internal_edges])
+        internal_bipartition_ints = np.array([bipartition.split_as_int() for bipartition in internal_bipartitions])
+        internal_edge_dict = {edge.bipartition.split_as_int():edge for edge in internal_edges}
+        current_loss = current_loss - max_value
+        loss_reduction_dict.pop(max_key)
+        ed = time.time()
+        reduction_list.append(max_value)
+        print(f"iteration {iteration} time: ", ed-st, " risk reduction: ", max_value)
+    return consensus_tree, reduction_list
+
 
 class Tree_with_support(dendropy.Tree):
     """Child class of `dendropy.datamodel.treemodel.Tree`, with supportfor support values.
@@ -439,7 +656,7 @@ class Tree_with_support(dendropy.Tree):
         srp.greedy_pruning()
         return self.current_tree
     
-    def sqd_greedy(self, treelist):
+    def sqd_greedy(self, treelist, parent_dir=None):
         """Apply greedy pruning algorithm w.r.t. SQD loss.
 
         Parameters
@@ -453,7 +670,7 @@ class Tree_with_support(dendropy.Tree):
             Consensus tree after applying greedy pruning
         """
         self_copy = self.clone(depth=1)
-        res = quartet_pruning(self_copy, treelist)
+        res = quartet_pruning(self_copy, treelist, parent_dir)
         return res
     
     def BS_prune(self, threshold=0.5):
@@ -566,6 +783,7 @@ def _unnormalized_TBE_and_match2(bipartitions, tree:Tree_with_support):
         second_match_list.append(second_match)
     
     return totalDistance, matched_list, secondDistance, second_match_list
+
 
 
 
@@ -735,152 +953,6 @@ class std_risk_prune:
 
 def _randomname(n):
    return ''.join(random.choices(string.ascii_letters + string.digits, k=n))
-
-
-def tqdist_fp_fn2(consensus_tree, input_trees_string, n_trees, parent_dir = None):
-    # consensus_tree: one tree: can be non-binary
-    # input_trees_string: Newick String of trees: ASSUMED TO BE BINARY
-    # n_trees: number of input treess
-
-    n = n_trees # number of input trees
-    
-
-    executable_name = 'pairs_quartet_dist'  # Name of the executable you're looking for
-    executable_path = shutil.which(executable_name)
-
-    if executable_path is None:
-        sys.exit(f"Error: '{executable_name}' not found. You need to install tqDist package on your PATH.")
-    else:
-        #print(f"Using executable '{executable_name}' found at {executable_path}...")
-        pass
-        # Proceed with execution
-
-    if parent_dir is None:
-        conname = "__" + _randomname(10) + ".nwk"
-        consname = "__" + _randomname(10) + ".nwk"
-        inputname = "__" + _randomname(10) + ".nwk"
-    else:
-        conname = os.path.join(parent_dir,  "__" + _randomname(10) + ".nwk")
-        consname = os.path.join(parent_dir, "__" + _randomname(10) + ".nwk")
-        inputname = os.path.join(parent_dir , "__" + _randomname(10) + ".nwk")
-
-    try:
-        consensus_tree.write(path=conname, schema="newick", suppress_rooting = True)
-        # write n * consensus trees 
-        consensus_nwk_str = consensus_tree.as_string(schema="newick", suppress_rooting = True)
-        with open(consname, "w") as f:
-            f.write(consensus_nwk_str*n)
-        
-        #write input trees
-        with open(inputname, "w") as f:
-            f.write(input_trees_string)
-        #input_trees.write(path = "__tmp__input.nwk", schema="newick", suppress_rooting=True)
-
-        # run pairs_quartet_dist
-        p= subprocess.run(["pairs_quartet_dist", "-v", consname, inputname],capture_output=True, text=True)
-        if p.stderr != '':
-            print("error executing tqdist:", p.stderr)
-            sys.exit(1)
-        quartet_dist_list = [float(item) for item in p.stdout.split()][2::8]
-        quartet_dists = np.array(quartet_dist_list)
-
-        # get number of unresolved quartet trees
-        p2 = subprocess.run(["pairs_quartet_dist", "-v", conname, conname],capture_output=True, text=True)
-        if p2.stderr != '':
-            print("error executing tqdist:", p2.stderr)
-            sys.exit(1)
-        num_unresolved = [float(item) for item in p2.stdout.split()][6]
-
-        num_unmatched_resolved = quartet_dists - num_unresolved # length n
-        
-        fn = quartet_dists # =  num_unresolved + num_unmatched_resolved
-        fp = num_unmatched_resolved
-        
-        for item in [conname, consname, inputname]:
-            if os.path.exists(item):
-                os.remove(item)
-        
-    except:
-        # delete temporary file
-        for item in [conname, consname, inputname]:
-            if os.path.exists(item):
-                os.remove(item)
-        print("Error computing quartet distance.")
-        sys.exit(1)
-
-    return fp, fn
-  
-
-
-def quartet_loss2(consensus_tree, input_trees_string, n_trees, normalized=True):
-    # use tqdist's `pairs_quartet_dist` function
-    fp, fn = tqdist_fp_fn2(consensus_tree, input_trees_string, n_trees) # fp, fn are ndarrays of length n=len(input_trees)
-    loss = np.sum(fp+fn)
-    if normalized:
-        loss = loss/n_trees
-    return loss
-
-def quartet_pruning(consensus_tree, input_trees):
-    bipartitions = np.array(consensus_tree.encode_bipartitions())
-    bipartition_ints = np.array([bipartition.split_as_int() for bipartition in bipartitions])
-    internal_edges = consensus_tree.internal_edges(exclude_seed_edge=True)
-    internal_bipartitions = np.array([edge.bipartition for edge in internal_edges])
-    internal_bipartition_ints = np.array([bipartition.split_as_int() for bipartition in internal_bipartitions])
-    internal_edge_dict = {edge.bipartition.split_as_int():edge for edge in internal_edges}
-
-    #external_bipartition_dict = {bipar_int: all_bipartition_dict[bipar_int] for bipar_int in all_bipartition_dict.keys() if bipar_int not in internal_bipartitions}
-    #external_bipartitions = np.array(list(external_bipartition_dict.values()))
-
-    #mask = [True for i in range(len(bipartitions))]
-    taxon_namespace = consensus_tree.taxon_namespace
-    trees_string = input_trees.as_string("newick", suppress_rooting=True)
-    n_trees = len(input_trees)
-    current_loss = quartet_loss2(consensus_tree, trees_string, n_trees, False)
-    next_updates = internal_bipartition_ints
-    #best_mask = [True for i in range(len(bipartitions))]
-    loss_reduction_dict = {bipar_int: 0 for bipar_int in internal_bipartition_ints}
-    iteration = 0
-    reduction_list = []
-    while True:
-        iteration += 1
-        st = time.time()
-        for bipar_int in next_updates:
-            if bipar_int in internal_bipartition_ints:
-                mask = bipar_int!=bipartition_ints
-                pruned_tree = dendropy.Tree.from_bipartition_encoding(bipartitions[mask], taxon_namespace=taxon_namespace)
-                loss = quartet_loss2(pruned_tree, trees_string, n_trees, False)
-                # if current_loss - loss > 0:
-                #     print(f"loss_reduction of {bipar_int}: ", current_loss - loss)
-                loss_reduction_dict[bipar_int] = current_loss - loss # if risk reduction happends, this is a positive value
-        
-        # look for edge that induces maximum risk reduction
-        max_key = max(loss_reduction_dict, key=loss_reduction_dict.get)
-        max_value = loss_reduction_dict[max_key]
-        # print(f"{max_key} will be pruned")
-        renew = (max_value > 0) # if renew = True, prune. otherwise, don't prune.
-        if not renew:
-            break # the current `consensus_tree` is the best
-        # if renew, we continue
-
-        ## update next_updates
-        next_updates = [edge.bipartition.split_as_int() for edge in internal_edge_dict[max_key].adjacent_edges]
-        # print(next_updates)
-        ## update other variables
-        best_mask = max_key!=bipartition_ints
-        consensus_tree = dendropy.Tree.from_bipartition_encoding(bipartitions[best_mask], taxon_namespace=taxon_namespace)
-        bipartitions = np.array(consensus_tree.encode_bipartitions())
-        bipartition_ints = np.array([bipartition.split_as_int() for bipartition in bipartitions])
-        internal_edges = consensus_tree.internal_edges(exclude_seed_edge=True)
-        internal_bipartitions = np.array([edge.bipartition for edge in internal_edges])
-        internal_bipartition_ints = np.array([bipartition.split_as_int() for bipartition in internal_bipartitions])
-        internal_edge_dict = {edge.bipartition.split_as_int():edge for edge in internal_edges}
-        current_loss = current_loss - max_value
-        loss_reduction_dict.pop(max_key)
-        ed = time.time()
-        reduction_list.append(max_value)
-        print(f"iteration {iteration} time: ", ed-st, " risk reduction: ", max_value)
-    return consensus_tree, reduction_list
-
 
 def _compatible(bits_a : Bits, bits_b : Bits):
     """Check if two bitsting represented clades are compatible.
