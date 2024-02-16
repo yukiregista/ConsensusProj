@@ -654,7 +654,7 @@ class Tree_with_support(dendropy.Tree):
         self_copy = self.clone(depth=1)
         srp = std_risk_prune(self_copy, treelist, normalized)
         srp.greedy_pruning()
-        return self.current_tree
+        return srp.current_tree
     
     def sqd_greedy(self, treelist, parent_dir=None):
         """Apply greedy pruning algorithm w.r.t. SQD loss.
@@ -670,7 +670,7 @@ class Tree_with_support(dendropy.Tree):
             Consensus tree after applying greedy pruning
         """
         self_copy = self.clone(depth=1)
-        res = quartet_pruning(self_copy, treelist, parent_dir)
+        res, reduction_list = quartet_pruning(self_copy, treelist, parent_dir)
         return res
     
     def BS_prune(self, threshold=0.5):
