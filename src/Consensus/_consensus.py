@@ -214,14 +214,14 @@ def _minDist(refinfo_b, tree):
     CountOnesSubtree = np.zeros(m)
     CountZerosSubtree = np.zeros(m)
 
-    for i, node in enumerate(tree.postorder_node_iter(exclude_seed_node=True)):
+    for i, node in enumerate(tree.postorder_node_iter()):
         node_biparint_to_postorder_index[node.bipartition.split_as_int()] = i
         if node.is_leaf():
             digit = taxon_labels_to_bitstr_digit[node.taxon.label]
             CountOnesSubtree[i] =  int(b_bitstr[- digit - 1])
             CountZerosSubtree[i] = 1 - CountOnesSubtree[i]
         else:
-            for child in node.child_node_iter(exclude_seed_node=True):
+            for child in node.child_node_iter():
                 CountOnesSubtree[i] += CountOnesSubtree[ node_biparint_to_postorder_index[child.bipartition.split_as_int()] ]
                 CountZerosSubtree[i] += CountZerosSubtree[ node_biparint_to_postorder_index[child.bipartition.split_as_int()] ]
             actDist = p - CountZerosSubtree[i] + CountOnesSubtree[i]
