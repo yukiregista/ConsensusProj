@@ -716,6 +716,62 @@ class Tree_with_support(dendropy.Tree):
         return cls(tree, bootstrap_support = bootstrap_support, TBE_support = TBE_support)
 
 
+def _minDist_and_match2(refinfo_b, tree):
+    # bipartition: Bipartition object
+    # tree: Tree_with_support or Tree object
+    p = refinfo_b[1]
+    b_bitstr = refinfo_b[-0]
+
+    d = p - 1
+    d2 = p - 1
+    matched=-1
+    second_match = -1
+    #edge_bitstr = Bits(uint = bipartition.split_as_int(), length=self.n_taxa)
+    #p = min(edge_bitstr.count(1), edge_bitstr.count(0))
+    #m = len(tree.edge)
+
+    # WE ASSUME THAT bipartition and tree has the exact same TAXON_NAMESPACE 
+    taxon_namespace = tree.taxon_namespace
+    taxon_labels = [taxon.label for taxon in taxon_namespace]
+    n_taxa = len(taxon_labels)
+    taxon_labels_to_bitstr_digit = dict(zip(taxon_labels, [i for i in range(n_taxa)]))
+    node_biparint_to_postorder_index = dict()
+
+    if tree.bipartition_encoding is None:
+        tree.encode_bipartitions()
+    
+    m = len(tree.bipartition_encoding)
+    CountOnesSubtree = np.zeros(m)
+    CountZerosSubtree = np.zeros(m)
+
+    for i, node in enumerate(tree.postorder_node_iter()):
+        node_biparint_to_postorder_index[node.bipartition.split_as_int()] = i
+        if node.is_leaf():
+            digit = taxon_labels_to_bitstr_digit[node.taxon.label]
+            CountOnesSubtree[i] =  int(b_bitstr[- digit - 1])
+            CountZerosSubtree[i] = 1 - CountOnesSubtree[i]
+        else:
+            for child in node.child_node_iter():
+                CountOnesSubtree[i] += CountOnesSubtree[ node_biparint_to_postorder_index[child.bipartition.split_as_int()] ]
+                CountZerosSubtree[i] += CountZerosSubtree[ node_biparint_to_postorder_index[child.bipartition.split_as_int()] ]
+            actDist = p - CountZerosSubtree[i] + CountOnesSubtree[i]
+            if actDist > n_taxa / 2:
+                actDist = n_taxa - actDist
+            if actDist < d:
+                # renew second match
+                d2 = d
+                second_match = matched
+                # renew first match
+                d = actDist
+                matched = node.bipartition.split_as_int()
+            elif actDist < d2:
+                # renew only second match
+                d2 = actDist
+                second_match = node.bipartition.split_as_int()
+    return d, matched, d2, second_match
+
+
+
 def _TBE_and_match2(bipartitions, tree:Tree_with_support):
     n_taxa = len(tree.taxon_namespace)
     refinfo = _create_refinfo(bipartitions, n_taxa)
