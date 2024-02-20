@@ -277,7 +277,7 @@ def tqdist_fp_fn(estimate, true, parent_dir = None):
     estimate.write(path = estimatename, schema="newick", suppress_rooting=True)
     true.write(path = truename, schema="newick", suppress_rooting=True)   
     
-    p= subprocess.run(["quartet_dist", "-v", estimate, true],capture_output=True, text=True)
+    p= subprocess.run(["quartet_dist", "-v", estimatename, truename],capture_output=True, text=True)
     keys = ["number_of_leaves", "number_of_all_quartets", "quartet_dist", "normalized_quartet_dist", "number_of_resolved_quartets_agreed", 
             "normalized_number_of_resolved_quartets_agreed", "number_of_unresolved_quartets_agreed", "normalized_number_of_unresolved_quaretets_agreed"]
     items = [float(item) for item in p.stdout.split()]
@@ -295,10 +295,10 @@ def tqdist_fp_fn(estimate, true, parent_dir = None):
     true_num_unresolved = tqdist_dict["number_of_all_quartets"] - true_num_resolved
     
     # compute number of each component
-    unresolved_resolved_fn = estimate_num_unresolved -  tqdist_dict["number_of_unresolved_quartets_aggreed"]
-    resolved_unresolved_fp = true_num_unresolved -  tqdist_dict["number_of_unresolved_quartets_aggreed"]
-    resolved_resolved_disagree = estimate_num_resolved - resolved_unresolved_fp - tqdist_dict['number_of_resolved_quartets_aggreed']
-    assert resolved_resolved_disagree == (true_num_resolved - unresolved_resolved_fn - tqdist_dict['number_of_resolved_quartets_aggreed'])
+    unresolved_resolved_fn = estimate_num_unresolved -  tqdist_dict["number_of_unresolved_quartets_agreed"]
+    resolved_unresolved_fp = true_num_unresolved -  tqdist_dict["number_of_unresolved_quartets_agreed"]
+    resolved_resolved_disagree = estimate_num_resolved - resolved_unresolved_fp - tqdist_dict['number_of_resolved_quartets_agreed']
+    assert resolved_resolved_disagree == (true_num_resolved - unresolved_resolved_fn - tqdist_dict['number_of_resolved_quartets_agreed'])
     
     # compute fn and fp
     fn = unresolved_resolved_fn + resolved_resolved_disagree
@@ -633,7 +633,7 @@ class Tree_with_support(dendropy.Tree):
         """
         # returns how resolved tree is w.r.t. #internal branches
         possible_num = self.n_taxa - 3 # dendropy Tree stores n external edges + 1 external edge connecting to seed_node. There are n-3 internal edges.
-        internal_num = len(self.inernal_edges(exclude_seed_edge=True))
+        internal_num = len(self.internal_edges(exclude_seed_edge=True))
         return internal_num / possible_num
 
     def std_greedy(self, treelist, normalized=True):
