@@ -362,9 +362,11 @@ def tqdist_fp_fn2(estimate, input_trees_string, n_trees, parent_dir = None):
     # keys = ["number_of_leaves", "number_of_all_quartets", "quartet_dist", "normalized_quartet_dist", "number_of_resolved_quartets_agreed", 
     #         "normalized_number_of_resolved_quartets_agreed", "number_of_unresolved_quartets_agreed", "normalized_number_of_unresolved_quaretets_agreed"]
     items = [float(item) for item in p.stdout.split()]
-    print(p.stdout)
-    num_unresolved_quartets_agreed = items[6::8]
-    num_resolved_quartets_agreed = items[4::8]
+    num_unresolved_quartets_agreed = np.array(items[6::8])
+    num_resolved_quartets_agreed = np.array(items[4::8])
+    
+    assert len(num_unresolved_quartets_agreed) == n_trees
+    assert len(num_resolved_quartets_agreed) == n_trees
     
     num_all_quartets = items[1]
     
