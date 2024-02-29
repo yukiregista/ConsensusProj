@@ -573,6 +573,9 @@ def quartet_pruning(consensus_tree, input_trees, parent_dir=None):
 
 class Tree_with_support(dendropy.Tree):
     """Child class of `dendropy.datamodel.treemodel.Tree`, with supportfor support values.
+    
+    Attributes:
+        x : 1
     """
     def __init__(self, *args, **kwargs):
         bootstrap_support = kwargs.pop("bootstrap_support", None)
