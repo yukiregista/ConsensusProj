@@ -386,7 +386,7 @@ def tqdist_fp_fn2(estimate, input_trees_string, n_trees, parent_dir = None):
     unresolved_resolved_fn = estimate_num_unresolved -  num_unresolved_quartets_agreed
     resolved_unresolved_fp = true_num_unresolved -  num_unresolved_quartets_agreed
     resolved_resolved_disagree = estimate_num_resolved - resolved_unresolved_fp - num_resolved_quartets_agreed
-    assert resolved_resolved_disagree == (true_num_resolved - unresolved_resolved_fn - num_resolved_quartets_agreed)
+    assert (resolved_resolved_disagree == (true_num_resolved - unresolved_resolved_fn - num_resolved_quartets_agreed)).all()
     
     # compute fn and fp
     fn = unresolved_resolved_fn + resolved_resolved_disagree
