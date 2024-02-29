@@ -353,7 +353,7 @@ def tqdist_fp_fn2(estimate, input_trees_string, n_trees, parent_dir = None):
     estimate_string = estimate.as_string(schema="newick", suppress_rooting = True)
     with open(estimatename, "w") as f:
         f.write(estimate_string*n_trees)
-    estimate.write(path = estimatename, schema="newick", suppress_rooting=True)
+    #estimate.write(path = estimatename, schema="newick", suppress_rooting=True)
     with open(truename, "w") as f:
         f.write(input_trees_string)
     #input_trees.write(path = truename, schema="newick", suppress_rooting=True)   
