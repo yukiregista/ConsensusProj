@@ -54,6 +54,11 @@ exclude_patterns = []
 
 #html_theme = 'alabaster'
 html_theme = "sphinx_rtd_theme"
+html_context = {
+  'display_github': True,
+  'github_user': 'yukiregista',
+  'github_repo': 'ConsensusProj',
+}
 html_static_path = ['_static']
 
 def skip_member(app, what, name, obj, skip, options):
