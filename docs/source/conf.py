@@ -19,6 +19,7 @@ release = 'https://github.com/yukiregista/ConsensusProj'
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
+    "sphinxcontrib.jquery",
     'sphinx.ext.autodoc',
     'sphinx.ext.todo',
     'sphinx.ext.viewcode',
