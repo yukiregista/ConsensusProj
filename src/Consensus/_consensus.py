@@ -280,7 +280,7 @@ def quartet_resolution2(tree_string, parent_dir = None, normalized=True):
         if os.path.exists(item):
             os.remove(item)
     num_all_quartets = items[1]
-    num_unresolved_quartets_agreed = items[6::8]
+    num_unresolved_quartets_agreed = np.array(items[6::8])
     if normalized:
         return (num_all_quartets - num_unresolved_quartets_agreed)/num_all_quartets
     else:
