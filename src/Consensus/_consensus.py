@@ -249,7 +249,7 @@ def quartet_resolution(tree, parent_dir = None, normalized=True):
             "normalized_number_of_resolved_quartets_agreed", "number_of_unresolved_quartets_agreed", "normalized_number_of_unresolved_quaretets_agreed"]
     items = [float(item) for item in p.stdout.split()]
     q_dict = dict(zip(keys, items))
-    print("deleting now", flush=True)
+    #print("deleting now", flush=True)
     for item in [conname,conname2]:
         if os.path.exists(item):
             os.remove(item)
@@ -275,7 +275,7 @@ def quartet_resolution2(tree_string, parent_dir = None, normalized=True):
             "normalized_number_of_resolved_quartets_agreed", "number_of_unresolved_quartets_agreed", "normalized_number_of_unresolved_quaretets_agreed"]
     items = [float(item) for item in p.stdout.split()]
     #q_dict = dict(zip(keys, items))
-    print("deleting now", flush=True)
+    #print("deleting now", flush=True)
     for item in [conname,conname2]:
         if os.path.exists(item):
             os.remove(item)
