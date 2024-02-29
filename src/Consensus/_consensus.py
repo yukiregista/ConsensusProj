@@ -1109,8 +1109,8 @@ class std_risk_prune:
             second_support = second_supports[i]
             if first_match != self.reverse_match_dict[bipar_int][0]:
                 print("different first match")
-                first_match = self.reverse_match_dict[bipar_int][0]
                 second_match = first_match # this way we don't have to modify the first match
+                first_match = self.reverse_match_dict[bipar_int][0]
                 second_support = self.rsupp_dict[bipar_int]
             self.reverse_match_dict[bipar_int][1] = second_match
             self.second_match_dict[second_match].append(bipar_int) # add new second match
