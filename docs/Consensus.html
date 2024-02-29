@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Consensus package &mdash; ConsensusProj https://github.com/yukiregista/ConsensusProj documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=0484f6ff"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Welcome to ConsensusProj’s documentation!" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            ConsensusProj
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Consensus package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#Consensus.TreeList_with_support"><code class="docutils literal notranslate"><span class="pre">TreeList_with_support</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#Consensus.TreeList_with_support.MAP"><code class="docutils literal notranslate"><span class="pre">TreeList_with_support.MAP()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Consensus.TreeList_with_support.Rstar_consensus"><code class="docutils literal notranslate"><span class="pre">TreeList_with_support.Rstar_consensus()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Consensus.TreeList_with_support.bootstrap_support"><code class="docutils literal notranslate"><span class="pre">TreeList_with_support.bootstrap_support()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Consensus.TreeList_with_support.compute_all_TBE"><code class="docutils literal notranslate"><span class="pre">TreeList_with_support.compute_all_TBE()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Consensus.TreeList_with_support.get"><code class="docutils literal notranslate"><span class="pre">TreeList_with_support.get()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Consensus.TreeList_with_support.greedy_TBE_consensus"><code class="docutils literal notranslate"><span class="pre">TreeList_with_support.greedy_TBE_consensus()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Consensus.TreeList_with_support.majority_consensus"><code class="docutils literal notranslate"><span class="pre">TreeList_with_support.majority_consensus()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#Consensus.Tree_with_support"><code class="docutils literal notranslate"><span class="pre">Tree_with_support</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#Consensus.Tree_with_support.x"><code class="docutils literal notranslate"><span class="pre">Tree_with_support.x</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Consensus.Tree_with_support.BS_prune"><code class="docutils literal notranslate"><span class="pre">Tree_with_support.BS_prune()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Consensus.Tree_with_support.branch_resolution"><code class="docutils literal notranslate"><span class="pre">Tree_with_support.branch_resolution()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Consensus.Tree_with_support.clone"><code class="docutils literal notranslate"><span class="pre">Tree_with_support.clone()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Consensus.Tree_with_support.compute_TBE"><code class="docutils literal notranslate"><span class="pre">Tree_with_support.compute_TBE()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Consensus.Tree_with_support.compute_bootstrap"><code class="docutils literal notranslate"><span class="pre">Tree_with_support.compute_bootstrap()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Consensus.Tree_with_support.get"><code class="docutils literal notranslate"><span class="pre">Tree_with_support.get()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Consensus.Tree_with_support.plot_Bio"><code class="docutils literal notranslate"><span class="pre">Tree_with_support.plot_Bio()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Consensus.Tree_with_support.sqd_greedy"><code class="docutils literal notranslate"><span class="pre">Tree_with_support.sqd_greedy()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Consensus.Tree_with_support.std_greedy"><code class="docutils literal notranslate"><span class="pre">Tree_with_support.std_greedy()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#Consensus.birthdeath_sampling"><code class="docutils literal notranslate"><span class="pre">birthdeath_sampling()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#Consensus.normalize_tree_with_lognormal"><code class="docutils literal notranslate"><span class="pre">normalize_tree_with_lognormal()</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">ConsensusProj</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Consensus package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/Consensus.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-Consensus">
+<span id="consensus-package"></span><h1>Consensus package<a class="headerlink" href="#module-Consensus" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="Consensus.TreeList_with_support">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">Consensus.</span></span><span class="sig-name descname"><span class="pre">TreeList_with_support</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Consensus/_consensus.html#TreeList_with_support"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.TreeList_with_support" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">TreeList</span></code></p>
+<p>Child class of dendropy.datamodel.treecollectionmodel.TreeList, with support for several consensus constructions and support values.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="Consensus.TreeList_with_support.MAP">
+<span class="sig-name descname"><span class="pre">MAP</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/Consensus/_consensus.html#TreeList_with_support.MAP"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.TreeList_with_support.MAP" title="Link to this definition"></a></dt>
+<dd><p>Returns the most appearing tree topology.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><em>List</em> – List of the most appearing tree topologies (has length &gt; 1 when more than two topologies have the same maximum count).</p></li>
+<li><p><em>int</em> – The number of occurrences of MAP trees.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Consensus.TreeList_with_support.Rstar_consensus">
+<span class="sig-name descname"><span class="pre">Rstar_consensus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root_index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">root_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Consensus/_consensus.html#TreeList_with_support.Rstar_consensus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.TreeList_with_support.Rstar_consensus" title="Link to this definition"></a></dt>
+<dd><p>Compute R* consensus.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>root_index</strong> (<em>int</em><em>, </em><em>optional</em>) – The index of root in self.taxon_namespace, by default None.
+You need to specify either <code class="docutils literal notranslate"><span class="pre">root_index</span></code> or <code class="docutils literal notranslate"><span class="pre">root_name</span></code>.</p></li>
+<li><p><strong>root_name</strong> (<em>_type_</em><em>, </em><em>optional</em>) – The name of root taxa, by default None
+You need to specify either <code class="docutils literal notranslate"><span class="pre">root_index</span></code> or <code class="docutils literal notranslate"><span class="pre">root_name</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>R* consensus tree.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#Consensus.Tree_with_support" title="Consensus.Tree_with_support">Tree_with_support</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Consensus.TreeList_with_support.bootstrap_support">
+<span class="sig-name descname"><span class="pre">bootstrap_support</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bipartition</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Consensus/_consensus.html#TreeList_with_support.bootstrap_support"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.TreeList_with_support.bootstrap_support" title="Link to this definition"></a></dt>
+<dd><p>Compute bootstrap support of a bipartition against self.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>bipartition</strong> (<cite>dendropy.datamodel.treemodel.Bipartition</cite>) – Bipartition to evaluate bootstrap support</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Bootstrap support.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Consensus.TreeList_with_support.compute_all_TBE">
+<span class="sig-name descname"><span class="pre">compute_all_TBE</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/Consensus/_consensus.html#TreeList_with_support.compute_all_TBE"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.TreeList_with_support.compute_all_TBE" title="Link to this definition"></a></dt>
+<dd><p>Compute all TBE of all bipartitions present in the treelist against self and save it in self.all_TBE_dict.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dictionary that has integers representing bipartitions as keys and TBE support as values.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Consensus.TreeList_with_support.get">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Consensus/_consensus.html#TreeList_with_support.get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.TreeList_with_support.get" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>_description_</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>_type_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Consensus.TreeList_with_support.greedy_TBE_consensus">
+<span class="sig-name descname"><span class="pre">greedy_TBE_consensus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">normalization</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Consensus/_consensus.html#TreeList_with_support.greedy_TBE_consensus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.TreeList_with_support.greedy_TBE_consensus" title="Link to this definition"></a></dt>
+<dd><p>Greedily (in terms of TBE or its unnormalized version) add edges to construct consensus tree.</p>
+<p>The candidate bipartitions are the set of all bipartitions included in self.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>normalization</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to use the usual TBE or unnormalized TBE.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Consensus tree.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#Consensus.Tree_with_support" title="Consensus.Tree_with_support">Tree_with_support</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Consensus.TreeList_with_support.majority_consensus">
+<span class="sig-name descname"><span class="pre">majority_consensus</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/Consensus/_consensus.html#TreeList_with_support.majority_consensus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.TreeList_with_support.majority_consensus" title="Link to this definition"></a></dt>
+<dd><p>Computes majority rule consensus.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Majority rule consensus tree.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#Consensus.Tree_with_support" title="Consensus.Tree_with_support">Tree_with_support</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="Consensus.Tree_with_support">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">Consensus.</span></span><span class="sig-name descname"><span class="pre">Tree_with_support</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Consensus/_consensus.html#Tree_with_support"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.Tree_with_support" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Tree</span></code></p>
+<p>Child class of <cite>dendropy.datamodel.treemodel.Tree</cite>, with supportfor support values.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="Consensus.Tree_with_support.x">
+<span class="sig-name descname"><span class="pre">x</span></span><a class="headerlink" href="#Consensus.Tree_with_support.x" title="Link to this definition"></a></dt>
+<dd><p>1</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Consensus.Tree_with_support.BS_prune">
+<span class="sig-name descname"><span class="pre">BS_prune</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">treelist</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Consensus/_consensus.html#Tree_with_support.BS_prune"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.Tree_with_support.BS_prune" title="Link to this definition"></a></dt>
+<dd><p>Prune all edges that has branch support &lt;= threshold.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>treelist</strong> (<a class="reference internal" href="#Consensus.TreeList_with_support" title="Consensus.TreeList_with_support"><em>TreeList_with_support</em></a>) – Input trees to compute branch support</p></li>
+<li><p><strong>threshold</strong> (<em>float</em><em>, </em><em>optional</em>) – Threshold of branch support, by default 0.5</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Thresholded consensus</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#Consensus.Tree_with_support" title="Consensus.Tree_with_support">Tree_with_support</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Consensus.Tree_with_support.branch_resolution">
+<span class="sig-name descname"><span class="pre">branch_resolution</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/Consensus/_consensus.html#Tree_with_support.branch_resolution"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.Tree_with_support.branch_resolution" title="Link to this definition"></a></dt>
+<dd><p>Returns branch resolution of self.</p>
+<p>The branch resolution is defined by:</p>
+<div class="math notranslate nohighlight">
+\[\frac{\text{# internal edges in self}}{\text{self.n_taxa} - 3}\]</div>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>_description_</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>_type_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Consensus.Tree_with_support.clone">
+<span class="sig-name descname"><span class="pre">clone</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">depth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Consensus/_consensus.html#Tree_with_support.clone"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.Tree_with_support.clone" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>depth</strong> (<em>int</em><em>, </em><em>optional</em>) – _description_, by default 1</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>_description_</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>_type_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Consensus.Tree_with_support.compute_TBE">
+<span class="sig-name descname"><span class="pre">compute_TBE</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">treelist</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Consensus/_consensus.html#Tree_with_support.compute_TBE"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.Tree_with_support.compute_TBE" title="Link to this definition"></a></dt>
+<dd><p>Compute TBE support of self against input <code class="docutils literal notranslate"><span class="pre">treelist</span></code> and update <cite>self.TBE_support</cite></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>treelist</strong> (<a class="reference internal" href="#Consensus.TreeList_with_support" title="Consensus.TreeList_with_support"><em>TreeList_with_support</em></a>) – List of trees to evaluate TBE support against.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Consensus.Tree_with_support.compute_bootstrap">
+<span class="sig-name descname"><span class="pre">compute_bootstrap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">treelist</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Consensus/_consensus.html#Tree_with_support.compute_bootstrap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.Tree_with_support.compute_bootstrap" title="Link to this definition"></a></dt>
+<dd><p>Compute bootstrap values of self against input <code class="docutils literal notranslate"><span class="pre">treelist</span></code> and update <cite>self.bootstrap_support</cite></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>treelist</strong> (<a class="reference internal" href="#Consensus.TreeList_with_support" title="Consensus.TreeList_with_support"><em>TreeList_with_support</em></a>) – List of trees to evaluate bootstrap support against.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Consensus.Tree_with_support.get">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Consensus/_consensus.html#Tree_with_support.get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.Tree_with_support.get" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>_description_</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>_type_</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Consensus.Tree_with_support.plot_Bio">
+<span class="sig-name descname"><span class="pre">plot_Bio</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'plain'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">decimals</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Consensus/_consensus.html#Tree_with_support.plot_Bio"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.Tree_with_support.plot_Bio" title="Link to this definition"></a></dt>
+<dd><p>Function to plot the tree using Bio.Phylo package.</p>
+<p>This function converts self to Bio.Phylo tree, and plot using Bio.Phylo’s functionality.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ax</strong> (<em>matplotlib.axes</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Axes to plot the tree on. If None, new figure will be created.</p></li>
+<li><p><strong>type</strong> (<em>str</em><em>, </em><em>optional</em>) – <p>The type of support values to plot, by default “plain” (no support values are plotted).
+If not “plain”, it should be one of the followings:</p>
+<ul>
+<li><p>”bootstrap” : bootstrap support</p></li>
+<li><p>”TBE” : TBE support</p></li>
+</ul>
+<p>If these support values are not computed before calling this function, it will use the option “plain”.</p>
+<p>Please compute the support values beforehand.</p>
+</p></li>
+<li><p><strong>decimals</strong> (<em>int</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Decimal precision of support values, by default None (no rounding).</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Consensus.Tree_with_support.sqd_greedy">
+<span class="sig-name descname"><span class="pre">sqd_greedy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">treelist</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parent_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Consensus/_consensus.html#Tree_with_support.sqd_greedy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.Tree_with_support.sqd_greedy" title="Link to this definition"></a></dt>
+<dd><p>Apply greedy pruning algorithm w.r.t. SQD loss.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>treelist</strong> (<a class="reference internal" href="#Consensus.TreeList_with_support" title="Consensus.TreeList_with_support"><em>TreeList_with_support</em></a>) – Input trees to evaluate SQD loss.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Consensus tree after applying greedy pruning</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#Consensus.Tree_with_support" title="Consensus.Tree_with_support">Tree_with_support</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="Consensus.Tree_with_support.std_greedy">
+<span class="sig-name descname"><span class="pre">std_greedy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">treelist</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normalized</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Consensus/_consensus.html#Tree_with_support.std_greedy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.Tree_with_support.std_greedy" title="Link to this definition"></a></dt>
+<dd><p>Apply greedy pruning algorithm w.r.t. STD loss.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>treelist</strong> (<a class="reference internal" href="#Consensus.TreeList_with_support" title="Consensus.TreeList_with_support"><em>TreeList_with_support</em></a>) – Input trees to evaluate STD loss.</p></li>
+<li><p><strong>normalized</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to normalized STD loss, by default True</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Consensus tree after applying greedy pruning</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#Consensus.Tree_with_support" title="Consensus.Tree_with_support">Tree_with_support</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="Consensus.birthdeath_sampling">
+<span class="sig-prename descclassname"><span class="pre">Consensus.</span></span><span class="sig-name descname"><span class="pre">birthdeath_sampling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_taxa</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">birth_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">death_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gsa_prop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tree</span></span></span><a class="reference internal" href="_modules/Consensus/_simulate_tree.html#birthdeath_sampling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.birthdeath_sampling" title="Link to this definition"></a></dt>
+<dd><p>Implements the general sampling approach using birth-death model and returns unrooted tree.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n_taxa</strong> (<em>int</em><em>, </em><em>optional</em>) – number of tips (taxa), by default 100</p></li>
+<li><p><strong>birth_rate</strong> (<em>float</em><em>, </em><em>optional</em>) – birth rate, by default 0.1</p></li>
+<li><p><strong>death_rate</strong> (<em>float</em><em>, </em><em>optional</em>) – death rate, by default 0.1</p></li>
+<li><p><strong>gsa_prop</strong> (<em>int</em><em>, </em><em>optional</em>) – Birth-death model will be simulated until <cite>gsa_prop</cite> * <cite>n_taxa</cite> tips are obtained, by default 10</p></li>
+<li><p><strong>seed</strong> (<em>int</em><em>, </em><em>optional</em>) – random seed, by default None</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Sampled tree.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dendropy.Tree</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="Consensus.normalize_tree_with_lognormal">
+<span class="sig-prename descclassname"><span class="pre">Consensus.</span></span><span class="sig-name descname"><span class="pre">normalize_tree_with_lognormal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tree</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">height</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lognormal_mean</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lognormal_std</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tree</span></span></span><a class="reference internal" href="_modules/Consensus/_simulate_tree.html#normalize_tree_with_lognormal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#Consensus.normalize_tree_with_lognormal" title="Link to this definition"></a></dt>
+<dd><p>Normalize edge length to have the specified height, then each edge length is multiplied by lognormal variable.
+If <cite>tree.is_rooted</cite> is <cite>True</cite>, the height is defined to be the (maximum) distance from the root to the tips.
+If <cite>tree.is_rooted</cite> is <cite>False</cite>, then the height is defined to be (the maximum patristic distance)/2.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tree</strong> (<cite>dendropy.Tree</cite> or <cite>Tree_with_support</cite>) – The tree to apply normalization.</p></li>
+<li><p><strong>height</strong> (<em>float</em><em>, </em><em>optional</em>) – see above, by default 0.05</p></li>
+<li><p><strong>lognormal_mean</strong> (<em>int</em><em>, </em><em>optional</em>) – The mean of lognormal variable to multiply for each edge, by default 1</p></li>
+<li><p><strong>lognormal_std</strong> (<em>float</em><em>, </em><em>optional</em>) – The standard deviation of lognormal variable to multiply for each edge, by default 0.5</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Normalized and perturbed tree.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dendropy.Tree</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Welcome to ConsensusProj’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Yuki Takazawa.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

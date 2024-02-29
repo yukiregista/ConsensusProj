@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Consensus._simulate_tree &mdash; ConsensusProj https://github.com/yukiregista/ConsensusProj documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=0484f6ff"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            ConsensusProj
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../Consensus.html">Consensus package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">ConsensusProj</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">Consensus._simulate_tree</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for Consensus._simulate_tree</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">dendropy</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">setrecursionlimit</span><span class="p">(</span><span class="mi">10000</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="birthdeath_sampling">
+<a class="viewcode-back" href="../../Consensus.html#Consensus.birthdeath_sampling">[docs]</a>
+<span class="k">def</span> <span class="nf">birthdeath_sampling</span><span class="p">(</span><span class="n">n_taxa</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">birth_rate</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span> <span class="n">death_rate</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span> <span class="n">gsa_prop</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">seed</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">dendropy</span><span class="o">.</span><span class="n">Tree</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Implements the general sampling approach using birth-death model and returns unrooted tree.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    n_taxa : int, optional</span>
+<span class="sd">        number of tips (taxa), by default 100</span>
+<span class="sd">    birth_rate : float, optional</span>
+<span class="sd">        birth rate, by default 0.1</span>
+<span class="sd">    death_rate : float, optional</span>
+<span class="sd">        death rate, by default 0.1</span>
+<span class="sd">    gsa_prop : int, optional</span>
+<span class="sd">        Birth-death model will be simulated until `gsa_prop` * `n_taxa` tips are obtained, by default 10</span>
+<span class="sd">    seed : int, optional</span>
+<span class="sd">        random seed, by default None</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dendropy.Tree</span>
+<span class="sd">        Sampled tree.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># create birth-death tree</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">dendropy</span><span class="o">.</span><span class="n">simulate</span><span class="o">.</span><span class="n">treesim</span><span class="o">.</span><span class="n">birth_death_tree</span><span class="p">(</span><span class="n">birth_rate</span> <span class="o">=</span> <span class="n">birth_rate</span><span class="p">,</span> <span class="n">death_rate</span> <span class="o">=</span> <span class="n">death_rate</span><span class="p">,</span> <span class="n">gsa_ntax</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_taxa</span> <span class="o">*</span> <span class="n">gsa_prop</span><span class="p">),</span> 
+                                                    <span class="n">num_extant_tips</span><span class="o">=</span><span class="n">n_taxa</span><span class="p">,</span> <span class="n">is_retain_extinct_tips</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span><span class="n">is_assign_extinct_taxa</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> 
+                                                    <span class="n">rng</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">Random</span><span class="p">(</span><span class="n">seed</span><span class="p">))</span>
+    
+    <span class="c1"># only retain extant taxa</span>
+    <span class="n">ll</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">count2</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">t</span><span class="o">.</span><span class="n">nodes</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">is_extinct</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="n">count2</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">node</span><span class="o">.</span><span class="n">taxon</span><span class="o">.</span><span class="n">label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;S</span><span class="si">{</span><span class="n">count2</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">ll</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">taxon</span><span class="o">.</span><span class="n">label</span><span class="p">)</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">extract_tree_with_taxa_labels</span><span class="p">(</span><span class="n">ll</span><span class="p">)</span>
+    <span class="n">t</span><span class="o">.</span><span class="n">purge_taxon_namespace</span><span class="p">()</span>
+    <span class="n">t</span><span class="o">.</span><span class="n">seed_node</span><span class="o">.</span><span class="n">edge_length</span><span class="o">=</span><span class="kc">None</span>
+    
+    <span class="k">return</span> <span class="n">t</span></div>
+
+
+<div class="viewcode-block" id="normalize_tree_with_lognormal">
+<a class="viewcode-back" href="../../Consensus.html#Consensus.normalize_tree_with_lognormal">[docs]</a>
+<span class="k">def</span> <span class="nf">normalize_tree_with_lognormal</span><span class="p">(</span><span class="n">tree</span><span class="p">,</span> <span class="n">height</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">lognormal_mean</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">lognormal_std</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">dendropy</span><span class="o">.</span><span class="n">Tree</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Normalize edge length to have the specified height, then each edge length is multiplied by lognormal variable.</span>
+<span class="sd">    If `tree.is_rooted` is `True`, the height is defined to be the (maximum) distance from the root to the tips.</span>
+<span class="sd">    If `tree.is_rooted` is `False`, then the height is defined to be (the maximum patristic distance)/2. </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    tree : `dendropy.Tree` or `Tree_with_support`</span>
+<span class="sd">        The tree to apply normalization.</span>
+<span class="sd">    height : float, optional</span>
+<span class="sd">        see above, by default 0.05</span>
+<span class="sd">    lognormal_mean : int, optional</span>
+<span class="sd">        The mean of lognormal variable to multiply for each edge, by default 1</span>
+<span class="sd">    lognormal_std : float, optional</span>
+<span class="sd">        The standard deviation of lognormal variable to multiply for each edge, by default 0.5</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dendropy.Tree</span>
+<span class="sd">        Normalized and perturbed tree.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># compute lognormal parameter</span>
+    <span class="n">lognormal_var</span> <span class="o">=</span> <span class="n">lognormal_std</span><span class="o">**</span><span class="mi">2</span>
+    <span class="n">scale2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">lognormal_var</span> <span class="o">/</span> <span class="n">lognormal_mean</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">scale</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">scale2</span><span class="p">)</span>
+    <span class="n">mu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">lognormal_mean</span><span class="p">)</span> <span class="o">-</span> <span class="n">scale2</span> <span class="o">/</span> <span class="mi">2</span>
+    
+    <span class="n">tt</span> <span class="o">=</span><span class="n">tree</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">depth</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># adjust length</span>
+    <span class="n">maxdist</span> <span class="o">=</span> <span class="n">tt</span><span class="o">.</span><span class="n">max_distance_from_root</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">edge</span> <span class="ow">in</span> <span class="n">tt</span><span class="o">.</span><span class="n">postorder_edge_iter</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">edge</span><span class="o">.</span><span class="n">length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">edge</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">edge</span><span class="o">.</span><span class="n">length</span><span class="o">/</span><span class="p">(</span><span class="n">maxdist</span><span class="p">)</span> <span class="o">*</span> <span class="n">height</span>
+            <span class="n">edge</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">edge</span><span class="o">.</span><span class="n">length</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">lognormal</span><span class="p">(</span><span class="n">mean</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="n">scale</span><span class="p">)</span>
+    
+    <span class="c1"># reroot at one of the internal node, suppress unifications, make it unrooted</span>
+    <span class="n">tt</span><span class="o">.</span><span class="n">reroot_at_node</span><span class="p">(</span><span class="n">tt</span><span class="o">.</span><span class="n">seed_node</span><span class="o">.</span><span class="n">child_nodes</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span><span class="n">collapse_unrooted_basal_bifurcation</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">tt</span><span class="o">.</span><span class="n">is_rooted</span><span class="o">=</span><span class="kc">False</span>
+    <span class="k">return</span> <span class="n">tt</span></div>
+
+    
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Yuki Takazawa.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
