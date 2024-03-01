@@ -358,7 +358,7 @@ def quartet_dist_fp_fn(estimate, inputs, parent_dir=None):
         return fp, fn
     elif isinstance(inputs, TreeList_with_support):
         inputs_string = inputs.as_string("newick", suppress_rooting=True)
-        fp, fn = tqdist_fp_fn2(estimate, inputs_string, len(inputs_string), parent_dir = parent_dir)
+        fp, fn = tqdist_fp_fn2(estimate, inputs_string, len(inputs), parent_dir = parent_dir)
         return fp, fn
     else:
         print("Please provide an instance of Tree_with_support or TreeList_with_support as inputs.")
