@@ -288,7 +288,7 @@ def quartet_resolution2(tree_string, parent_dir = None, normalized=True):
 
 
 def tqdist_fp_fn(estimate, true, parent_dir = None):
-    executable_name = 'pairs_quartet_dist'
+    executable_name = 'quartet_dist'
     executable_path = shutil.which(executable_name)
     if executable_path is None:
         sys.exit(f"Error: '{executable_name}' not found. You need to install tqDist package on your PATH.")
@@ -333,6 +333,36 @@ def tqdist_fp_fn(estimate, true, parent_dir = None):
     fn = unresolved_resolved_fn + resolved_resolved_disagree
     fp = resolved_unresolved_fp + resolved_resolved_disagree
     return fp, fn
+    
+
+def quartet_dist_fp_fn(estimate, inputs, parent_dir=None):
+    """Compute false positives and false negatives of symmetric quartet distance.
+    
+
+    Parameters
+    ----------
+    estimate : Tree_with_support
+        Estimates.
+    inputs : Tree_with_support or TreeList_with_support
+        Input trees to evaluate the estimate. 
+    parent_dir : str, optional
+        Path to place intermediate files, by default None (place files in the folder of execution).
+        
+    Returns
+    -------
+    (float, float) or (numpy.ndarray, numpy.ndarray)
+        False positives and False negatives.
+    """
+    if isinstance(inputs, Tree_with_support):
+        fp, fn = tqdist_fp_fn(estimate, inputs, parent_dir=parent_dir)
+        return fp, fn
+    elif isinstance(inputs, TreeList_with_support):
+        inputs_string = inputs.as_string("newick", suppress_rooting=True)
+        fp, fn = tqdist_fp_fn2(estimate, inputs_string, len(inputs_string), parent_dir = parent_dir)
+        return fp, fn
+    else:
+        print("Please provide an instance of Tree_with_support or TreeList_with_support as inputs.")
+        sys.exit(1)
     
 
 def tqdist_fp_fn2(estimate, input_trees_string, n_trees, parent_dir = None):
@@ -1665,3 +1695,86 @@ class TreeList_with_support(dendropy.TreeList):
     #     qstar_tree = Tree_with_support.get(path = "treefile", schema="newick")
     #     return qstar_tree
 
+
+def unnormalized_TBE_fp_fn(true_tree, tree2: Tree_with_support):
+    tree1_int_bipars = [node.bipartition for node in true_tree.postorder_internal_node_iter(exclude_seed_node=True)]
+    tree2_int_bipars = [node.bipartition for node in tree2.postorder_internal_node_iter(exclude_seed_node=True)]
+    fp = np.sum(unnormalized_TBE(tree2_int_bipars, [true_tree]))
+    fn = np.sum(unnormalized_TBE(tree1_int_bipars, [tree2]))
+    return fp, fn
+
+def STD1_fp_fn(true_tree, tree2:  Tree_with_support):
+    tree1_int_bipars = [node.bipartition for node in true_tree.postorder_internal_node_iter(exclude_seed_node=True)]
+    tree2_int_bipars = [node.bipartition for node in tree2.postorder_internal_node_iter(exclude_seed_node=True)]
+    fp = np.sum((1-TBE(tree2_int_bipars, [true_tree])))
+    fn = np.sum((1-TBE(tree1_int_bipars, [tree2])))
+    return fp, fn
+
+def unnormalized_STD_fp_fn(estimate, inputs):
+    """Computes false positive and false negative of unnormalized STD.
+        
+    Parameters
+    ----------
+    estimate : Tree_with_support
+        Estimates.
+    inputs : Tree_with_support or TreeList_with_support
+        Input trees to evaluate the estimate. 
+        
+
+    Returns
+    -------
+    (float, float)
+        False positives and False negatives.
+    """
+    
+    if isinstance(inputs, Tree_with_support):
+        return unnormalized_TBE_fp_fn(inputs, estimate)
+    elif isinstance(inputs, TreeList_with_support):
+        tree1_int_bipars = [node.bipartition for node in estimate.postorder_internal_node_iter(exclude_seed_node=True)]
+        fp = np.sum(unnormalized_TBE(tree1_int_bipars,inputs))
+        fp = 0
+        fn = 0
+        for i in range(len(inputs)):
+            fp_tmp, fn_tmp = unnormalized_TBE_fp_fn(inputs[i], estimate)
+            fp += fp_tmp
+            fn += fn_tmp
+        fn /= len(inputs)
+        fp /= len(inputs)
+        return fp, fn
+    else:
+        print("input trees have to be either Tree_with_support or TreeList_with_support.")
+        sys.exit(1)
+        
+def STD_fp_fn(estimate, inputs):
+    """Computes false positive and false negative of STD.
+        
+    Parameters
+    ----------
+    estimate : Tree_with_support
+        Estimates.
+    inputs : Tree_with_support or TreeList_with_support
+        Input trees to evaluate the estimate.      
+
+    Returns
+    -------
+    (float, float)
+        False positives and False negatives.
+    """
+    
+    if isinstance(inputs, Tree_with_support):
+        return STD1_fp_fn(inputs, estimate)
+    elif isinstance(inputs, TreeList_with_support):
+        tree1_int_bipars = [node.bipartition for node in estimate.postorder_internal_node_iter(exclude_seed_node=True)]
+        fp = np.sum(unnormalized_TBE(tree1_int_bipars,inputs))
+        fp = 0
+        fn = 0
+        for i in range(len(inputs)):
+            fp_tmp, fn_tmp = STD1_fp_fn(inputs[i], estimate)
+            fp += fp_tmp
+            fn += fn_tmp
+        fn /= len(inputs)
+        fp /= len(inputs)
+        return fp, fn
+    else:
+        print("input trees have to be either Tree_with_support or TreeList_with_support.")
+        sys.exit(1)
