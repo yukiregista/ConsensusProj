@@ -872,6 +872,7 @@ class Tree_with_support(dendropy.Tree):
         return cls(tree, bootstrap_support = bootstrap_support, TBE_support = TBE_support)
 
 
+
 def _minDist_and_match2(refinfo_b, tree):
     # bipartition: Bipartition object
     # tree: Tree_with_support or Tree object
@@ -1730,8 +1731,6 @@ def unnormalized_STD_fp_fn(estimate, inputs):
     if isinstance(inputs, Tree_with_support):
         return unnormalized_TBE_fp_fn(inputs, estimate)
     elif isinstance(inputs, TreeList_with_support):
-        tree1_int_bipars = [node.bipartition for node in estimate.postorder_internal_node_iter(exclude_seed_node=True)]
-        fp = np.sum(unnormalized_TBE(tree1_int_bipars,inputs))
         fp = 0
         fn = 0
         for i in range(len(inputs)):
@@ -1764,8 +1763,6 @@ def STD_fp_fn(estimate, inputs):
     if isinstance(inputs, Tree_with_support):
         return STD1_fp_fn(inputs, estimate)
     elif isinstance(inputs, TreeList_with_support):
-        tree1_int_bipars = [node.bipartition for node in estimate.postorder_internal_node_iter(exclude_seed_node=True)]
-        fp = np.sum(unnormalized_TBE(tree1_int_bipars,inputs))
         fp = 0
         fn = 0
         for i in range(len(inputs)):
