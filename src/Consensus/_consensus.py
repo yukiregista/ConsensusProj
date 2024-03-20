@@ -784,13 +784,32 @@ class Tree_with_support(dendropy.Tree):
 
         Returns
         -------
-        _type_
-            _description_
+        float
+            Branch resolution
         """
         # returns how resolved tree is w.r.t. #internal branches
         possible_num = self.n_taxa - 3 # dendropy Tree stores n external edges + 1 external edge connecting to seed_node. There are n-3 internal edges.
         internal_num = len(self.internal_edges(exclude_seed_edge=True))
         return internal_num / possible_num
+    
+    def quartet_resolution(self):
+        """Returns quartet resolution of self.
+        
+        The quartet resolution is defined by:
+        
+        .. math::
+
+            \\frac{\\text{# resolved quartets in self}}{\\binom{n}{4}}
+
+            
+
+        Returns
+        -------
+        float
+            Quartet resolution
+        """
+        # returns how resolved tree is w.r.t. #internal branches
+        return quartet_resolution(self)
 
     def std_greedy(self, treelist, normalized=True):
         """Apply greedy pruning algorithm w.r.t. STD loss.
