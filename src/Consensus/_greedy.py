@@ -8,6 +8,40 @@ from collections import OrderedDict
 import time
 import dendropy
 
+def _create_refinfo_splitkey(bipartitions, n_taxa):
+    """Helper function for TBE
+
+    Parameters
+    ----------
+    bipartitions : List of integer representation of bipartitions
+        _description_
+    n_taxa : int
+        _description_
+
+    Returns
+    -------
+    dict
+        bipar_int as key an tuple of (bitstr, p) as value.
+    """
+    
+    # bipartitions: iterable of dendropy.Bipartition
+    refinfo = dict()
+    for bipartition in bipartitions:
+        edge_bitstr = Bits(uint = bipartition, length=n_taxa)
+        counts = (edge_bitstr.count(0), edge_bitstr.count(1))
+        if counts[0] < counts[1]:
+            # zero lready assigned to light side
+            bitstr = edge_bitstr
+            p = counts[0]
+        else:
+            # reverse bitstring
+            bitstr = (~edge_bitstr)
+            p = counts[1]
+        refinfo[bipartition] = (bitstr, p)
+    # O( len(bipartitions) *  n_taxa )
+    return refinfo
+
+
 
 def _MinHammingDist(a : Bits, b : Bits):
     return min(distance.hamming(a.bin,b.bin), distance.hamming((~a).bin,b.bin))
@@ -59,6 +93,47 @@ class STDGreedyConsensus():
                 bit_i = self.BipartitionBitsList[i]
                 bit_j = self.BipartitionBitsList[j]
                 DIST[i,j] = DIST[j,i] = _MinHammingDist(bit_i, bit_j)
+        elif method == "efficient":
+            refinfos = _create_refinfo_splitkey(self.BipartitionList, self.n_taxa)  
+            for ind, bipar_key in enumerate(self.BipartitionList):
+                refinfo_b = refinfos[bipar_key]
+                p = refinfo_b[1]
+                b_bitstr = refinfo_b[0]
+                d = p - 1
+                for tree in self.input_trees:
+                    # WE ASSUME THAT bipartition and tree has the exact same TAXON_NAMESPACE 
+                    taxon_namespace = tree.taxon_namespace
+                    taxon_labels = [taxon.label for taxon in taxon_namespace]
+                    n_taxa = len(taxon_labels)
+                    taxon_labels_to_bitstr_digit = dict(zip(taxon_labels, [i for i in range(n_taxa)]))
+                    node_biparint_to_postorder_index = dict()
+
+                    if tree.bipartition_encoding is None:
+                        tree.encode_bipartitions()
+                    
+                    m = len(tree.bipartition_encoding)
+                    CountOnesSubtree = np.zeros(m)
+                    CountZerosSubtree = np.zeros(m)
+
+                    for i, node in enumerate(tree.postorder_node_iter()):
+                        node_biparint_to_postorder_index[node.bipartition.split_as_int()] = i
+                        if node.is_leaf():
+                            digit = taxon_labels_to_bitstr_digit[node.taxon.label]
+                            CountOnesSubtree[i] =  int(b_bitstr[- digit - 1])
+                            CountZerosSubtree[i] = 1 - CountOnesSubtree[i]
+                        else:
+                            for child in node.child_node_iter():
+                                CountOnesSubtree[i] += CountOnesSubtree[ node_biparint_to_postorder_index[child.bipartition.split_as_int()] ]
+                                CountZerosSubtree[i] += CountZerosSubtree[ node_biparint_to_postorder_index[child.bipartition.split_as_int()] ]
+                            actDist = p - CountZerosSubtree[i] + CountOnesSubtree[i]
+                            if actDist > n_taxa / 2:
+                                actDist = n_taxa - actDist
+                            
+                            if not node == tree.seed_node:
+                                node_ind = self.Bipartition2Index[node.bipartition.split_as_int()]
+                                DIST[ind, node_ind] = DIST[node_ind, ind] = actDist                            
+                            if actDist < d:
+                                d = actDist  
         else:
             sys.exit("Invalid method.")
         DIST[self.n_bipartitions, :-1] = self.BipartitionP - 1
@@ -99,11 +174,16 @@ class STDGreedyConsensus():
         # time3 = time.time()
         # print(f"time passed : {time3-time2}", flush=True) -> probably very inefficient, no need for IncompatibilityGraph.
         
-        # Create DIST
+        # Create DIST in two ways...
         print("Creating DIST...", end = " ", flush=True)
         self.DIST = self._ComputeDIST(method="simple")
+        time3 = time.time()
+        print(f"time passed : {time3-time2}", flush=True)
+        print("DIST2...")
+        self.DIST2 = self._ComputeDIST(method="efficient")
+        print(np.sum((self.DIST - self.DIST2)**2))
         time4 = time.time()
-        print(f"time passed : {time4-time2}", flush=True)
+        print(f"time passed : {time4-time3}", flush=True)
         
         # Compute Transfer Dissimilarity Cost
         print("Creating TD...", end = " ", flush=True)
