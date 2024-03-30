@@ -1464,6 +1464,28 @@ class TreeList_with_support(dendropy.TreeList):
         # majority_tree.bootstrap_support = bootstrap_support
         return Tree_with_support(majority_tree, bootstrap_support = bootstrap_support, taxon_namespace = self.taxon_namespace)
 
+    def MCC_tree(self):
+        """Computes majority rule consensus.
+
+        Returns
+        -------
+        Tree_with_support
+            Maximum Clade Credibility (MCC) tree.
+        """
+        max_ind = 0
+        maxcredi = 0
+        for index, tree in enumerate(self):
+            internals = tree.internal_nodes(exclude_seed_node=True)
+            credi = 0
+            for node in internals:
+                credi += self.edge_dict[node.bipartition.split_as_int()]
+            if credi > maxcredi:
+                # renew max_ind and maxcredi
+                max_ind = index
+                maxcredi = credi
+        return self[max_ind].clone() # return cloned tree with depth 1
+            
+    
     def MAP(self):
         """Returns the most appearing tree topology.
 
