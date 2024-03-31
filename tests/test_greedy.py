@@ -56,4 +56,11 @@ def test_STDGreedyConsensus():
     print(np.sum(STD_fp_fn(greedy, input_trees)))
     
     
+def test_SQDGreedyConsensus():
+    input_trees_path = files('Consensus.example_data').joinpath('GTRgamma_edit.nex')
+    input_trees = TreeList_with_support.get(path = input_trees_path, schema="nexus")
+    majority = input_trees.majority_consensus()
     
+    sqd_maj = SQDGreedyConsensus(input_trees)
+    sqd_maj.specify_initial_tree(majority)
+    sqd_maj.greedy()
