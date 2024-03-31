@@ -1,4 +1,4 @@
-from ._consensus import TreeList_with_support, Tree_with_support, _compatible
+from ._consensus import TreeList_with_support, Tree_with_support, _compatible, quartet_loss2
 from bitstring import Bits
 import numpy as np
 from itertools import combinations
@@ -46,24 +46,26 @@ def _create_refinfo_splitkey(bipartitions, n_taxa):
 def _MinHammingDist(a : Bits, b : Bits):
     return min(distance.hamming(a.bin,b.bin), distance.hamming((~a).bin,b.bin))
 
-class STDGreedyConsensus():
-    
+
+class GreedyConsensusBase():
     def _CreateBipartitionListAndCounts(self):
         # create BipartitionDict
+        BipartitionCountDict = OrderedDict()
         BipartitionDict = OrderedDict()
         for tree in self.input_trees:
-            dict_keys = BipartitionDict.keys() # no duplicate keys in one tree
+            dict_keys = BipartitionCountDict.keys() # no duplicate keys in one tree
             tree.encode_bipartitions()
             for branch in tree.internal_edges(exclude_seed_edge=True):
                 key = branch.bipartition.split_as_int()
+                BipartitionDict.setdefault(key, branch.bipartition)
                 if key in dict_keys:
-                    BipartitionDict[key] += 1
+                    BipartitionCountDict[key] += 1
                 else:
-                    BipartitionDict[key] = 1
+                    BipartitionCountDict[key] = 1
         # Create BipartitionList, BipartitionCounts, Index2Bipartition and BipartitionP
         BipartitionList = []; BipartitionCounts = []; BipartitionP = []; BipartitionBitsList = []
         
-        for key, value in BipartitionDict.items():
+        for key, value in BipartitionCountDict.items():
             BipartitionList.append(key)
             BipartitionCounts.append(value)
             bitstr = Bits(uint = key, length=self.n_taxa)
@@ -71,8 +73,66 @@ class STDGreedyConsensus():
             BipartitionP.append(min(bitstr.count(0), bitstr.count(1))) # size of the light side
         
         Bipartition2Index = {BipartitionList[i]:i for i in range(len(BipartitionList))}
-        return np.array(BipartitionList), np.array(BipartitionCounts), BipartitionBitsList, np.array(BipartitionP), Bipartition2Index
+        return np.array(BipartitionList), np.array(BipartitionCounts), BipartitionBitsList, np.array(BipartitionP), Bipartition2Index, BipartitionDict
     
+    def __init__(self, input_trees : TreeList_with_support):
+        self.input_trees = input_trees
+        self.taxon_namespace = input_trees.taxon_namespace
+        self.n_taxa = len(input_trees.taxon_namespace)
+
+        
+        # Create BipartitionList etc
+        print("Creating Bipartition List etc...", end=" ", flush=True)
+        time1 = time.time()
+        self.BipartitionList, self.BipartitionCounts, self.BipartitionBitsList, self.BipartitionP, self.Bipartition2Index, self.BipartitionDict \
+            = self._CreateBipartitionListAndCounts()
+        time2 = time.time()
+        print(f"time passed : {time2-time1}", flush=True)
+        
+        self.n_bipartitions = len(self.BipartitionList)
+        
+        # Initialize current tree
+        self.current_tree_included = np.zeros(self.n_bipartitions)
+    
+    def is_compatible(self, BiparBit):
+        
+        included_indices = np.nonzero(self.current_tree_included)[0]
+        
+        if len(included_indices) == 0:
+            return True
+        elif len(included_indices) == self.n_taxa - 3:
+            return False
+        else:
+            # check compatibility with each edge.
+            compatible = True
+            for index in included_indices:
+                current = self.BipartitionBitsList[index]
+                if not _compatible(BiparBit, current):
+                    return False
+        return compatible
+    
+    def specify_initial_tree(self, initial_tree: Tree_with_support, *args, **kwargs):
+        raise NotImplementedError()
+
+    def reset_initial_tree(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def return_current_tree(self):
+        bipartition_keys = self.BipartitionList[np.nonzero(self.current_tree_included)[0]]
+        bipartitions = [dendropy.Bipartition(leafset_bitmask = item, tree_leafset_bitmask = 2**self.n_taxa - 1) for item in bipartition_keys]
+        dendropy_tree = dendropy.Tree.from_bipartition_encoding(bipartitions, self.taxon_namespace)
+        return Tree_with_support(dendropy_tree)  
+    
+    def current_loss(self):
+        raise NotImplementedError()
+    
+    def add(self, branch_index, *args, **kwargs):
+        return NotImplementedError()
+    
+    def remoev(self, branch_index, *args, **kwargs):
+        return NotImplementedError()
+
+class STDGreedyConsensus(GreedyConsensusBase):
     
     # def _CreateCompatibilityGraph(self):
     #     # intiialize CompatibilityGraph
@@ -153,20 +213,7 @@ class STDGreedyConsensus():
             
     
     def __init__(self, input_trees : TreeList_with_support):
-        self.input_trees = input_trees
-        self.taxon_namespace = input_trees.taxon_namespace
-        self.n_taxa = len(input_trees.taxon_namespace)
-        
-        # Create BipartitionList etc
-        print("Creating Bipartition List etc...", end=" ", flush=True)
-        time1 = time.time()
-        self.BipartitionList, self.BipartitionCounts, self.BipartitionBitsList, self.BipartitionP, self.Bipartition2Index \
-            = self._CreateBipartitionListAndCounts()
-        time2 = time.time()
-        print(f"time passed : {time2-time1}", flush=True)
-        
-        
-        self.n_bipartitions = len(self.BipartitionList)
+        super().__init__(input_trees)
         
         # # Create CompatibilityGraph
         # print("Creating CompatibilityGraph...", end = " ", flush=True)
@@ -175,13 +222,14 @@ class STDGreedyConsensus():
         # print(f"time passed : {time3-time2}", flush=True) -> probably very inefficient, no need for IncompatibilityGraph.
         
         # Create DIST in two ways...
+        time2 = time.time()
         print("Creating DIST...", end = " ", flush=True)
         self.DIST = self._ComputeDIST(method="simple")
         time3 = time.time()
         print(f"time passed : {time3-time2}", flush=True)
-        print("DIST2...")
-        self.DIST2 = self._ComputeDIST(method="efficient")
-        print(np.sum((self.DIST - self.DIST2)**2))
+        # print("DIST2...")
+        # self.DIST2 = self._ComputeDIST(method="efficient")
+        # print(np.sum((self.DIST - self.DIST2)**2))
         time4 = time.time()
         print(f"time passed : {time4-time3}", flush=True)
         
@@ -197,10 +245,7 @@ class STDGreedyConsensus():
         self.SECOND_MATCH = np.array([self.n_bipartitions for _ in range(self.n_bipartitions)])
         # self.n_bipartitions is used to represent the match with leaf bipartitions.
         
-        # Initialize current tree
-        self.current_tree_included = np.zeros(self.n_bipartitions)
-        
-    def specify_initial_tree(self, initial_tree : Tree_with_support):
+    def specify_initial_tree(self, initial_tree : Tree_with_support, *args, **kwargs):
         # initial tree should only have those bipartitions in the input trees
         assert (initial_tree.taxon_namespace == self.taxon_namespace)
         internal_branches = initial_tree.internal_edges(exclude_seed_edge = True)
@@ -233,8 +278,11 @@ class STDGreedyConsensus():
             if (self.DIST[bipar_ind, min2_ind]) / (self.BipartitionP[bipar_ind]-1) >= 1:
                 continue
             self.SECOND_MATCH[bipar_ind] = min2_ind
-        
-        
+    
+    def reset_initial_tree(self, *args, **kwargs):
+        self.MATCH = np.array([self.n_bipartitions for _ in range(self.n_bipartitions)])
+        self.SECOND_MATCH = np.array([self.n_bipartitions for _ in range(self.n_bipartitions)])
+        self.current_tree_included = np.zeros(self.n_bipartitions)
         
     
     def is_compatible(self, BiparBit):
@@ -289,7 +337,7 @@ class STDGreedyConsensus():
             sys.exit("Invalid method specified.")
     
     
-    def add(self, branch_index):
+    def add(self, branch_index, *args, **kwargs):
         self.current_tree_included[branch_index] = 1
         # renew match and second match
         for bipar_ind, bipar in enumerate(self.BipartitionList):
@@ -304,7 +352,7 @@ class STDGreedyConsensus():
                     # renew second match
                     self.SECOND_MATCH[bipar_ind] = branch_index
         
-    def remove(self, branch_index):
+    def remove(self, branch_index, *args, **kwargs):
         self.current_tree_included[branch_index] = 0
         for bipar_ind, bipar in enumerate(self.BipartitionList):
             # check if match
@@ -393,20 +441,81 @@ class STDGreedyConsensus():
         for bipar_ind, bipar in enumerate(self.BipartitionList):
             fn += ((self.DIST[bipar_ind, self.MATCH[bipar_ind]]) / (self.BipartitionP[bipar_ind] - 1)) * self.BipartitionCounts[bipar_ind]
         return (fp + fn) / len(self.input_trees)
-            
-            
-                
-        
-            
+                                
                    
+class SQDGreedyConsensus(GreedyConsensusBase):
+              
+    def __init__(self, input_trees : TreeList_with_support):
+        super().__init__(input_trees)
+        self.input_trees_string = input_trees.as_string("newick", suppress_rooting=True)
+        
+        
+     
+    def specify_initial_tree(self, initial_tree : Tree_with_support, *args, **kwargs):
+        # initial tree should only have those bipartitions in the input trees
+        assert (initial_tree.taxon_namespace == self.taxon_namespace)
+        internal_branches = initial_tree.internal_edges(exclude_seed_edge = True)
+        internal_bipar_keys = [item.bipartition.split_as_int() for item in internal_branches]
+        if not np.all([item in self.BipartitionList for item in internal_bipar_keys]):
+            sys.exit("Initial tree should only have those bipartitions in the input trees")
+        
+        # renew self.current_tree_included
+        self.current_tree_included = np.zeros(self.n_bipartitions)
+        internal_indices = np.array([self.Bipartition2Index[item] for item in internal_bipar_keys])
+        for item in internal_indices:
+            self.current_tree_included[item] = 1
+    
+    def reset_initial_tree(self, *args, **kwargs):
+        self.current_tree_included = np.zeros(self.n_bipartitions)
+    
+    def SQD_cost(self, bipar_keys, exec_dir=None):    
+        bipartition_list = [self.BipartitionDict[key] for key in bipar_keys]
+        tree = dendropy.Tree.from_bipartition_encoding(bipartition_list, taxon_namespace = self.taxon_namespace)
+        return quartet_loss2(tree, self.input_trees_string, len(self.input_trees), False, exec_dir)
+     
+    def add(self, branch_index, *args, **kwargs):
+        self.current_tree_included[branch_index] = 1
+        
+    def remove(self, branch_index, *args, **kwargs):
+        self.current_tree_included[branch_index] = 0
+    
+    def _first_greedy(self, sorted_index):
+        
+        mask = self.current_tree_included == 1
+        bipar_keys = self.BipartitionList[mask]
+        current_cost = self.SQD_cost(bipar_keys)
+        
+        improving = True
+        while improving:
+            improving = False
+            for bipar_ind in sorted_index:
+                if self.current_tree_included[bipar_ind] == 1:
+                    new_bipar_keys = bipar_keys[bipar_keys!=bipar_ind]
+                    newcost = self.SQD_cost(new_bipar_keys)
+                    if newcost < current_cost:
+                        self.remove(bipar_ind)
+                        print(f"branch removed, newcost: {newcost}")
+                        improving =True
+                        current_cost = newcost
+                        bipar_keys = new_bipar_keys
+                        break
+                elif self.is_compatible(self.BipartitionBitsList[bipar_ind]):
+                    new_bipar_keys = np.append(bipar_keys, self.BipartitionList[bipar_ind])
+                    newcost = self.SQD_cost(new_bipar_keys)
+                    if newcost < current_cost:
+                        self.add(bipar_ind)
+                        print(f"branch added, newcost: {newcost}")
+                        improving=True
+                        current_cost = newcost
+                        bipar_keys = new_bipar_keys
+                        break
+    
+    def greedy(self, method="first", order="BS"):
+        if order == "BS":
+            # order branch by branch support
+            sorted_index = np.argsort(self.BipartitionCounts)[::-1]
+            if method == "first":
+                self._first_greedy(sorted_index)
             
-        
-        
-        
-        
-        
-        
-        
-        
     
 
