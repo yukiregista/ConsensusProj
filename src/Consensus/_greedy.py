@@ -48,6 +48,23 @@ def _MinHammingDist(a : Bits, b : Bits):
 
 
 class GreedyConsensusBase():
+    
+    def _Compatible_with_bipar_ints(self, bipar_int, tree_bipar_ints):
+        
+        if len(tree_bipar_ints) == 0:
+            return True
+        elif len(tree_bipar_ints) == self.n_taxa - 3:
+            return False
+        else:
+            # check compatibility with each edge.
+            tree_bipar_bits = [Bits(uint=key, length=self.n_taxa) for key in tree_bipar_ints]
+            compatible = True
+            cand_bit = Bits(uint=bipar_int,length=self.n_taxa)
+            for bit in tree_bipar_bits:
+                if not _compatible(cand_bit, bit):
+                    return False
+        return compatible
+    
     def _CreateBipartitionListAndCounts(self):
         # create BipartitionDict
         BipartitionCountDict = OrderedDict()
@@ -80,7 +97,6 @@ class GreedyConsensusBase():
         self.taxon_namespace = input_trees.taxon_namespace
         self.n_taxa = len(input_trees.taxon_namespace)
 
-        
         # Create BipartitionList etc
         print("Creating Bipartition List etc...", end=" ", flush=True)
         time1 = time.time()
@@ -93,6 +109,7 @@ class GreedyConsensusBase():
         
         # Initialize current tree
         self.current_tree_included = np.zeros(self.n_bipartitions)
+    
     
     def is_compatible(self, BiparBit):
         
@@ -129,7 +146,7 @@ class GreedyConsensusBase():
     def add(self, branch_index, *args, **kwargs):
         return NotImplementedError()
     
-    def remoev(self, branch_index, *args, **kwargs):
+    def remove(self, branch_index, *args, **kwargs):
         return NotImplementedError()
 
 class STDGreedyConsensus(GreedyConsensusBase):
@@ -417,11 +434,28 @@ class STDGreedyConsensus(GreedyConsensusBase):
             else:
                 break
         
-    def greedy(self, method = "first", order="BS"):
+    def greedy(self, method = "first", order="BS", refine_majority=False):
         
         if order == "BS":
             # order branch by branch support
-            sorted_index = np.argsort(self.BipartitionCounts)[::-1]
+            if refine_majority:
+                # specify initial tree
+                maj = self.input_trees.majority_consensus()
+                self.specify_initial_tree(maj)
+                
+                # edit sorted index
+                maj_ints = [branch.bipartition.split_as_int() for branch in maj.internal_edges(exclude_seed_edge=True)]
+                mask = []
+                for index, bipar_int in enumerate(self.BipartitionList):
+                    if self._Compatible_with_bipar_ints(bipar_int, maj_ints):
+                        mask.append(index)
+                # now mask contains indices of those branches that are compatible with majority
+                
+                sorted_index = np.argsort(self.BipartitionCounts[mask])[::-1]
+                sorted_index = [mask[item] for item in sorted_index]
+            else:
+                sorted_index = np.argsort(self.BipartitionCounts)[::-1]
+               
             if method == "first":
                 self._first_greedy(sorted_index)
             if method == "most":
@@ -510,10 +544,26 @@ class SQDGreedyConsensus(GreedyConsensusBase):
                         bipar_keys = new_bipar_keys
                         break
     
-    def greedy(self, method="first", order="BS", exec_dir = None):
+    def greedy(self, method="first", order="BS", exec_dir = None, refine_majority=False):
         if order == "BS":
             # order branch by branch support
-            sorted_index = np.argsort(self.BipartitionCounts)[::-1]
+            if refine_majority:
+                # specify initial tree
+                maj = self.input_trees.majority_consensus()
+                self.specify_initial_tree(maj)
+                
+                # edit sorted index
+                maj_ints = [branch.bipartition.split_as_int() for branch in maj.internal_edges(exclude_seed_edge=True)]
+                mask = []
+                for index, bipar_int in enumerate(self.BipartitionList):
+                    if self._Compatible_with_bipar_ints(bipar_int, maj_ints):
+                        mask.append(index)
+                # now mask contains indices of those branches that are compatible with majority
+                
+                sorted_index = np.argsort(self.BipartitionCounts[mask])[::-1]
+                sorted_index = [mask[item] for item in sorted_index]
+            else:
+                sorted_index = np.argsort(self.BipartitionCounts)[::-1]
             if method == "first":
                 self._first_greedy(sorted_index, exec_dir = exec_dir)
             
@@ -791,11 +841,28 @@ class SUTDGreedyConsensus(GreedyConsensusBase):
             else:
                 break
         
-    def greedy(self, method = "first", order="BS"):
+    def greedy(self, method = "first", order="BS", refine_majority=False):
         
         if order == "BS":
+            if refine_majority:
+                # specify initial tree
+                maj = self.input_trees.majority_consensus()
+                self.specify_initial_tree(maj)
+                
+                # edit sorted index
+                maj_ints = [branch.bipartition.split_as_int() for branch in maj.internal_edges(exclude_seed_edge=True)]
+                mask = []
+                for index, bipar_int in enumerate(self.BipartitionList):
+                    if self._Compatible_with_bipar_ints(bipar_int, maj_ints):
+                        mask.append(index)
+                # now mask contains indices of those branches that are compatible with majority
+                
+                sorted_index = np.argsort(self.BipartitionCounts[mask])[::-1]
+                sorted_index = [mask[item] for item in sorted_index]
+            else:
+                sorted_index = np.argsort(self.BipartitionCounts)[::-1]
             # order branch by branch support
-            sorted_index = np.argsort(self.BipartitionCounts)[::-1]
+            #sorted_index = np.argsort(self.BipartitionCounts)[::-1]
             if method == "first":
                 self._first_greedy(sorted_index)
             if method == "most":
