@@ -473,7 +473,7 @@ class Tree_with_support(dendropy.Tree):
         internal_num = len(self.internal_edges(exclude_seed_edge=True))
         return internal_num / possible_num
     
-    def _quartet_resolution(self):
+    def quartet_resolution(self):
         """Returns quartet resolution of self.
         
         The quartet resolution is defined by:

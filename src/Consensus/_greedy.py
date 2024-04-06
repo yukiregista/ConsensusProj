@@ -566,8 +566,7 @@ class SQDGreedyConsensus(GreedyConsensusBase):
                 sorted_index = np.argsort(self.BipartitionCounts)[::-1]
             if method == "first":
                 self._first_greedy(sorted_index, exec_dir = exec_dir)
-            
-   
+               
 
 class SUTDGreedyConsensus(GreedyConsensusBase):
      
