@@ -19,6 +19,7 @@ import random, string
 import time
 
 
+
 def _get_newick(node, parent_dist, leaf_names, newick='') -> str:
     """Convert sciply.cluster.hierarchy.to_tree()-output to Newick format.
     
@@ -52,94 +53,527 @@ def _get_newick(node, parent_dist, leaf_names, newick='') -> str:
         newick = "(%s" % (newick)
         return newick
 
-def TBE(bipartitions, treelist):
-    """Compute TBE of given set of bipartitions against input trees.
 
-    Parameters
-    ----------
-    bipartitions : Iterable of `dendropy.datamodel.treemodel.Bipartition`
-        Bipartitions to evaluate TBE support.
-    treelist : TreeList_with_support or Iterable of either Tree_with_support or 
-        Input trees to evaluate TBE support against.
+def _quartet_resolution(tree, parent_dir = None, normalized=True):
     
-    Notes
-    -----
-    Trees that produce input bipartitions and treelist need to have the same taxon_namespace.
-    
-    Otherwise, the produced TBE support will not be a valid one.
-    
-    Please check this manually, as we don't check it inside the function.
+    if parent_dir is None:
+        conname = "__" + _randomname(10) + ".nwk"
+        conname2 = "__" + _randomname(10) + ".nwk"
+    else:
+        conname = parent_dir + "/__" + _randomname(10) + ".nwk"
+        conname2 = parent_dir + "__" + _randomname(10) + ".nwk"
+    tree.write(path = conname, schema="newick", suppress_rooting=True)
+    tree.write(path = conname2, schema="newick", suppress_rooting=True)
+    p= subprocess.run(["quartet_dist", "-v", conname, conname2],capture_output=True, text=True)
+    keys = ["number_of_leaves", "number_of_all_quartets", "quartet_dist", "normalized_quartet_dist", "number_of_resolved_quartets_agreed", 
+            "normalized_number_of_resolved_quartets_agreed", "number_of_unresolved_quartets_agreed", "normalized_number_of_unresolved_quaretets_agreed"]
+    items = [float(item) for item in p.stdout.split()]
+    q_dict = dict(zip(keys, items))
+    #print("deleting now", flush=True)
+    for item in [conname,conname2]:
+        if os.path.exists(item):
+            os.remove(item)
+    if normalized:
+        return (q_dict["number_of_all_quartets"] - q_dict["number_of_unresolved_quartets_agreed"])/q_dict["number_of_all_quartets"]
+    else:
+        return (q_dict["number_of_all_quartets"] - q_dict["number_of_unresolved_quartets_agreed"])
 
-    Returns
-    -------
-    numpy.ndarray
-        Array of TBE support. 
+def _quartet_resolution_str(tree_string, parent_dir = None, normalized=True):
+    
+    if parent_dir is None:
+        conname = "__" + _randomname(10) + ".nwk"
+        conname2 = "__" + _randomname(10) + ".nwk"
+    else:
+        conname = parent_dir + "/__" + _randomname(10) + ".nwk"
+        conname2 = parent_dir + "__" + _randomname(10) + ".nwk"
+    with open(conname, "w") as f:
+        f.write(tree_string)
+    with open(conname2, "w") as f:
+        f.write(tree_string)
+    p= subprocess.run(["quartet_dist", "-v", conname, conname2],capture_output=True, text=True)
+    keys = ["number_of_leaves", "number_of_all_quartets", "quartet_dist", "normalized_quartet_dist", "number_of_resolved_quartets_agreed", 
+            "normalized_number_of_resolved_quartets_agreed", "number_of_unresolved_quartets_agreed", "normalized_number_of_unresolved_quaretets_agreed"]
+    items = [float(item) for item in p.stdout.split()]
+    #q_dict = dict(zip(keys, items))
+    #print("deleting now", flush=True)
+    for item in [conname,conname2]:
+        if os.path.exists(item):
+            os.remove(item)
+    num_all_quartets = items[1]
+    num_unresolved_quartets_agreed = np.array(items[6::8])
+    if normalized:
+        return (num_all_quartets - num_unresolved_quartets_agreed)/num_all_quartets
+    else:
+        return (num_all_quartets - num_unresolved_quartets_agreed)
+
+
+def _tqdist_fp_fn(estimate, true, parent_dir = None):
+    executable_name = 'quartet_dist'
+    executable_path = shutil.which(executable_name)
+    if executable_path is None:
+        sys.exit(f"Error: '{executable_name}' not found. You need to install tqDist package on your PATH.")
+    else:
+        #print(f"Using executable '{executable_name}' found at {executable_path}...")
+        pass
+        # Proceed with execution
+    if parent_dir is None:
+        estimatename = "__" + _randomname(10) + ".nwk"
+        truename = "__" + _randomname(10) + ".nwk"
+    else:
+        estimatename = os.path.join(parent_dir,  "__" + _randomname(10) + ".nwk")
+        truename = os.path.join(parent_dir, "__" + _randomname(10) + ".nwk")
+    
+    estimate.write(path = estimatename, schema="newick", suppress_rooting=True)
+    true.write(path = truename, schema="newick", suppress_rooting=True)   
+    
+    p= subprocess.run(["quartet_dist", "-v", estimatename, truename],capture_output=True, text=True)
+    keys = ["number_of_leaves", "number_of_all_quartets", "quartet_dist", "normalized_quartet_dist", "number_of_resolved_quartets_agreed", 
+            "normalized_number_of_resolved_quartets_agreed", "number_of_unresolved_quartets_agreed", "normalized_number_of_unresolved_quaretets_agreed"]
+    items = [float(item) for item in p.stdout.split()]
+    tqdist_dict = dict(zip(keys, items))
+    
+    for item in [estimatename,truename]:
+        if os.path.exists(item):
+            os.remove(item)
+
+    
+    # check resolution
+    estimate_num_resolved = _quartet_resolution(estimate, parent_dir=parent_dir, normalized=False)
+    estimate_num_unresolved = tqdist_dict["number_of_all_quartets"] - estimate_num_resolved
+    true_num_resolved = _quartet_resolution(true, parent_dir=parent_dir, normalized=False)
+    true_num_unresolved = tqdist_dict["number_of_all_quartets"] - true_num_resolved
+    
+    # compute number of each component
+    unresolved_resolved_fn = estimate_num_unresolved -  tqdist_dict["number_of_unresolved_quartets_agreed"]
+    resolved_unresolved_fp = true_num_unresolved -  tqdist_dict["number_of_unresolved_quartets_agreed"]
+    resolved_resolved_disagree = estimate_num_resolved - resolved_unresolved_fp - tqdist_dict['number_of_resolved_quartets_agreed']
+    assert resolved_resolved_disagree == (true_num_resolved - unresolved_resolved_fn - tqdist_dict['number_of_resolved_quartets_agreed'])
+    
+    # compute fn and fp
+    fn = unresolved_resolved_fn + resolved_resolved_disagree
+    fp = resolved_unresolved_fp + resolved_resolved_disagree
+    return fp, fn
+
+def _tqdist_fp_fn_trees_str(estimate, input_trees_string, n_trees, parent_dir = None):
+    executable_name = 'pairs_quartet_dist'
+    executable_path = shutil.which(executable_name)
+    if executable_path is None:
+        sys.exit(f"Error: '{executable_name}' not found. You need to install tqDist package on your PATH.")
+    else:
+        #print(f"Using executable '{executable_name}' found at {executable_path}...")
+        pass
+        # Proceed with execution
+    if parent_dir is None:
+        estimatename = "__" + _randomname(10) + ".nwk"
+        truename = "__" + _randomname(10) + ".nwk"
+    else:
+        estimatename = os.path.join(parent_dir,  "__" + _randomname(10) + ".nwk")
+        truename = os.path.join(parent_dir, "__" + _randomname(10) + ".nwk")
+    estimate_string = estimate.as_string(schema="newick", suppress_rooting = True)
+    with open(estimatename, "w") as f:
+        f.write(estimate_string*n_trees)
+    #estimate.write(path = estimatename, schema="newick", suppress_rooting=True)
+    with open(truename, "w") as f:
+        f.write(input_trees_string)
+    #input_trees.write(path = truename, schema="newick", suppress_rooting=True)   
+    
+    p= subprocess.run(["pairs_quartet_dist", "-v", estimatename, truename],capture_output=True, text=True)
+    # keys = ["number_of_leaves", "number_of_all_quartets", "quartet_dist", "normalized_quartet_dist", "number_of_resolved_quartets_agreed", 
+    #         "normalized_number_of_resolved_quartets_agreed", "number_of_unresolved_quartets_agreed", "normalized_number_of_unresolved_quaretets_agreed"]
+    items = [float(item) for item in p.stdout.split()]
+    num_unresolved_quartets_agreed = np.array(items[6::8])
+    num_resolved_quartets_agreed = np.array(items[4::8])
+    
+    assert len(num_unresolved_quartets_agreed) == n_trees
+    assert len(num_resolved_quartets_agreed) == n_trees
+    
+    num_all_quartets = items[1]
+    
+    #tqdist_dict = dict(zip(keys, items))
+    
+    for item in [estimatename,truename]:
+        if os.path.exists(item):
+            os.remove(item)
+    
+    # check resolution
+    estimate_num_resolved = _quartet_resolution(estimate, parent_dir=parent_dir, normalized=False)
+    estimate_num_unresolved = num_all_quartets - estimate_num_resolved
+    true_num_resolved = _quartet_resolution_str(input_trees_string, parent_dir=parent_dir, normalized=False)
+    true_num_unresolved = num_all_quartets - true_num_resolved
+    
+    # compute number of each component
+    unresolved_resolved_fn = estimate_num_unresolved -  num_unresolved_quartets_agreed
+    resolved_unresolved_fp = true_num_unresolved -  num_unresolved_quartets_agreed
+    resolved_resolved_disagree = estimate_num_resolved - resolved_unresolved_fp - num_resolved_quartets_agreed
+    assert (resolved_resolved_disagree == (true_num_resolved - unresolved_resolved_fn - num_resolved_quartets_agreed)).all()
+    
+    # compute fn and fp
+    fn = unresolved_resolved_fn + resolved_resolved_disagree
+    fp = resolved_unresolved_fp + resolved_resolved_disagree
+    return fp, fn
+     
+
+def SQD_loss(consensus_tree, input_trees_string, n_trees, normalized=True, parent_dir = None):
+    # use tqdist's `pairs_quartet_dist` function
+    fp, fn = _tqdist_fp_fn_trees_str(consensus_tree, input_trees_string, n_trees, parent_dir) # fp, fn are ndarrays of length n=len(input_trees)
+    loss = np.sum(fp+fn)
+    if normalized:
+        loss = loss/n_trees
+    return loss
+
+def SQD_pruning(consensus_tree, input_trees, parent_dir=None):
+    bipartitions = np.array(consensus_tree.encode_bipartitions())
+    bipartition_ints = np.array([bipartition.split_as_int() for bipartition in bipartitions])
+    internal_edges = consensus_tree.internal_edges(exclude_seed_edge=True)
+    internal_bipartitions = np.array([edge.bipartition for edge in internal_edges])
+    internal_bipartition_ints = np.array([bipartition.split_as_int() for bipartition in internal_bipartitions])
+    internal_edge_dict = {edge.bipartition.split_as_int():edge for edge in internal_edges}
+
+    #external_bipartition_dict = {bipar_int: all_bipartition_dict[bipar_int] for bipar_int in all_bipartition_dict.keys() if bipar_int not in internal_bipartitions}
+    #external_bipartitions = np.array(list(external_bipartition_dict.values()))
+
+    #mask = [True for i in range(len(bipartitions))]
+    taxon_namespace = consensus_tree.taxon_namespace
+    trees_string = input_trees.as_string("newick", suppress_rooting=True)
+    n_trees = len(input_trees)
+    current_loss = SQD_loss(consensus_tree, trees_string, n_trees, False, parent_dir)
+    next_updates = internal_bipartition_ints
+    #best_mask = [True for i in range(len(bipartitions))]
+    loss_reduction_dict = {bipar_int: 0 for bipar_int in internal_bipartition_ints}
+    iteration = 0
+    reduction_list = []
+    while True:
+        iteration += 1
+        st = time.time()
+        for bipar_int in next_updates:
+            if bipar_int in internal_bipartition_ints:
+                mask = bipar_int!=bipartition_ints
+                pruned_tree = dendropy.Tree.from_bipartition_encoding(bipartitions[mask], taxon_namespace=taxon_namespace)
+                loss = SQD_loss(pruned_tree, trees_string, n_trees, False, parent_dir)
+                # if current_loss - loss > 0:
+                #     print(f"loss_reduction of {bipar_int}: ", current_loss - loss)
+                loss_reduction_dict[bipar_int] = current_loss - loss # if risk reduction happends, this is a positive value
+        
+        # look for edge that induces maximum risk reduction
+        max_key = max(loss_reduction_dict, key=loss_reduction_dict.get)
+        max_value = loss_reduction_dict[max_key]
+        # print(f"{max_key} will be pruned")
+        renew = (max_value > 0) # if renew = True, prune. otherwise, don't prune.
+        if not renew:
+            break # the current `consensus_tree` is the best
+        # if renew, we continue
+
+        ## update next_updates
+        next_updates = [edge.bipartition.split_as_int() for edge in internal_edge_dict[max_key].adjacent_edges]
+        # print(next_updates)
+        ## update other variables
+        best_mask = max_key!=bipartition_ints
+        consensus_tree = dendropy.Tree.from_bipartition_encoding(bipartitions[best_mask], taxon_namespace=taxon_namespace)
+        bipartitions = np.array(consensus_tree.encode_bipartitions())
+        bipartition_ints = np.array([bipartition.split_as_int() for bipartition in bipartitions])
+        internal_edges = consensus_tree.internal_edges(exclude_seed_edge=True)
+        internal_bipartitions = np.array([edge.bipartition for edge in internal_edges])
+        internal_bipartition_ints = np.array([bipartition.split_as_int() for bipartition in internal_bipartitions])
+        internal_edge_dict = {edge.bipartition.split_as_int():edge for edge in internal_edges}
+        current_loss = current_loss - max_value
+        loss_reduction_dict.pop(max_key)
+        ed = time.time()
+        reduction_list.append(max_value)
+        print(f"iteration {iteration} time: ", ed-st, " risk reduction: ", max_value)
+    return consensus_tree, reduction_list
+
+
+class Tree_with_support(dendropy.Tree):
+    """Child class of `dendropy.datamodel.treemodel.Tree`, with support for computing and storing support values.
+    
+    Attributes:
+        x : 1
     """
-    
-    n_taxa = len(treelist[0].taxon_namespace)
-    refinfo = _create_refinfo(bipartitions, n_taxa)
-    n_bipartitions = len(bipartitions)
-    totalSupport = np.zeros(n_bipartitions)
+    def __init__(self, *args, **kwargs):
+        branch_support = kwargs.pop("branch_support", None)
+        transfer_support = kwargs.pop("transfer_support", None)
+        super().__init__(*args, **kwargs)
+        self.branch_support = branch_support
+        self.transfer_support = transfer_support
+        self.n_taxa = len(self.taxon_namespace)
+        self.encode_bipartitions() #some methods (from_bipartitions etc) seem to produce a tree with bad bipartition_encoding, so renew it 
 
-    for tree in treelist:
-        if tree.bipartition_encoding is None:
-            tree.encode_bipartitions()
-        tree_bipartition_ints = [bipartition.split_as_int() for bipartition in tree.bipartition_encoding]
-        for i, bipartition in enumerate(bipartitions):
-            bipar_int = bipartition.split_as_int()
-            if bipar_int in tree_bipartition_ints:
-                support = 1
-            elif refinfo[bipar_int][1] == 2:
-                support  = 0
+    def compute_branch_support(self, treelist):
+        """Compute branch support values of self against input ``treelist`` and update `self.branch_support`
+        If Bayesian posterior draws are given as ``treelist``, `branch_support` corresponds to the posterior support.
+        If Bootstrap estimates are given as ``treelist``, `branch_support` corresponds to the traditional bootstrap support. 
+
+        Parameters
+        ----------
+        treelist : TreeList_with_support
+            List of trees to evaluate bootstrap support against.
+
+        Returns
+        -------
+        None
+        """
+        assert self.taxon_namespace == treelist.taxon_namespace
+        branch_support = dict()
+        if self.bipartition_encoding is None:
+            self.encode_bipartitions()
+        for bipar in self.bipartition_encoding:
+            key = bipar.split_as_int()
+            if key in treelist.edge_dict.keys():
+                branch_support[key] = treelist.edge_dict[key]/len(treelist)
             else:
-                support = 1 - _minDist(refinfo[bipar_int], tree) / (refinfo[bipar_int][1] - 1)
-            totalSupport[i] += support
+                branch_support[key] = 0
+        self.branch_support = branch_support
+        return None
     
-    totalSupport = totalSupport / len(treelist)
-    return totalSupport
-
-def unnormalized_TBE(bipartitions, treelist):
-    """Unnormalized version of transfer bootstrap expectation.
     
-    Due to the lack of normalization, contrary to the usual TBE, the lower value (close to zero) indicates well supported edges.
+    def compute_transfer_support(self, treelist):
+        """Compute transfer_support support of self against input ``treelist`` and update `self.transfer_support`
 
-    Parameters
-    ----------
-    bipartitions : Iterable of `dendropy.datamodel.treemodel.Bipartition`
-        Bipartitions to evaluate unnormalized TBE.
-    treelist : TreeList_with_support or Iterable of either Tree_with_support or 
-        Input trees to evaluate unnormalized TBE against.
+        Parameters
+        ----------
+        treelist : TreeList_with_support
+            List of trees to evaluate transfer_support support against.
 
-    Returns
-    -------
-    numpy.ndarray
-        Array of unnormalized TBE. 
-    """
-    n_taxa = len(treelist[0].taxon_namespace)
-    refinfo = _create_refinfo(bipartitions, n_taxa)
-    n_bipartitions = len(bipartitions)
-    totalDistance = np.zeros(n_bipartitions)
+        Returns
+        -------
+        None
+        """
+        assert self.taxon_namespace == treelist.taxon_namespace
+        if self.bipartition_encoding  is None:
+            self.encode_bipartitions()
+        bipartitions = self.bipartition_encoding
+        bipartitions_ints = [bipar.split_as_int() for bipar in bipartitions]
+        transfer_support_list = transfer_support(bipartitions, treelist)
+        self.transfer_support = dict(zip(bipartitions_ints, transfer_support_list))
+        return None
 
-    for tree in treelist:
-        if tree.bipartition_encoding is None:
-            tree.encode_bipartitions()
-        tree_bipartition_ints = [bipartition.split_as_int() for bipartition in tree.bipartition_encoding]
-        for i, bipartition in enumerate(bipartitions):
-            bipar_int = bipartition.split_as_int()
-            if bipar_int in tree_bipartition_ints:
-                distance = 0
-            elif refinfo[bipar_int][1] == 2:
-                distance  = 1
+    def clone(self, depth=1):
+        """clone
+
+        Parameters
+        ----------
+        depth : int, optional
+            _description_, by default 1
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
+        cloned_tree = super().clone(depth=1)
+        return Tree_with_support(cloned_tree, branch_support=self.branch_support, transfer_support = self.transfer_support)
+        
+
+    def _make_Bio_tree(self, support = None):
+        """Helper function to convert self to Bio tree.
+
+        Parameters
+        ----------
+        support : dict or None, optional
+            Support values to provide to Bio tree.   
+            If dict, it should have integer representing each bipartition as key and support values as value.
+            If None, no support values are provided to Bio tree.
+            By default None
+
+        Returns
+        -------
+        Bio.Phylo.Newick.Tree
+            Newly created Bio tree.
+        """
+        tree_Bio = Phylo.read(file = StringIO(self.as_string(schema="newick")) , format = "newick" )
+        if support is not None:
+            ##### start -- add support information to each edge
+            for clade in tree_Bio.find_clades(order="postorder"):
+                terminals = [item.name for item in clade.get_terminals()]
+                taxonnames_array = np.array([item.label for item in self.taxon_namespace])
+                digits = [ np.where( item == taxonnames_array )[0][0] for item in terminals ]
+                clade_bool = [False for i in range(self.n_taxa)]
+                for digit in digits:
+                    clade_bool[-(digit+1)] = True
+                clade_bit = Bits(clade_bool) # bitstring corresponding to the clade
+                if int(clade_bit.bin[-1]) == 1:
+                    clade_bit = (~clade_bit) # convert to least significant 0 format
+                if clade_bit.uint in support.keys():
+                    clade_support = support[clade_bit.uint]
+                    clade.confidence = clade_support
+            #####  end  -- add support information to each edge
+        return tree_Bio  
+
+    def plot_Bio(self, ax = None, type = "plain", decimals = None):
+        """Function to plot the tree using Bio.Phylo package.
+        
+        This function converts self to Bio.Phylo tree, and plot using Bio.Phylo's functionality.
+
+        Parameters
+        ----------
+        ax : matplotlib.axes or None, optional
+            Axes to plot the tree on. If None, new figure will be created.
+        type : str, optional
+            The type of support values to plot, by default "plain" (no support values are plotted).
+            If not "plain", it should be one of the followings:
+            
+            - "branch support" : Branch support
+            - "transfer support" : Transfer support
+            
+            If these support values are not computed before calling this function, it will use the option "plain".
+            
+            Please compute the support values beforehand.
+        decimals : int or None, optional
+            Decimal precision of support values, by default None (no rounding).
+        """
+
+        ## type: one of ["plain", "bootstrap", "transfer_support"]. If other name is provided, it will automatically plot "plain" one.
+        ## decimals: int, if provided, round confidence number at that number
+
+        if ax is None:
+            fig, ax = plt.subplots(figsize = (20,20))
+        tree_Bio = Phylo.read(file = StringIO(self.as_string(schema="newick")) , format = "newick" )
+
+        if type == "branch support":
+            if self.branch_support is None:
+                warnings.warn("Branch support values has not been provided to the instance. Plotting the plain tree.")
+            if decimals is not None:
+                boot = {k:np.round(v, decimals=decimals) for k, v in self.branch_support.items()}
             else:
-                distance = _minDist(refinfo[bipar_int], tree)
-            totalDistance[i] += distance
+                boot = self.branch_support
+            tree_Bio = self._make_Bio_tree(boot)
+            Phylo.draw( tree_Bio, axes = ax)
+        elif type == "transfer support":
+            if self.transfer_support is None:
+                warnings.warn("transfer support values has not been provided to the instance. Plotting the plain tree.")
+            if decimals is not None:
+                transfer_support_supp = {k:np.round(v, decimals=decimals) for k, v in self.transfer_support.items()}
+            else:
+                transfer_support_supp = self.transfer_support
+            tree_Bio = self._make_Bio_tree(transfer_support_supp)
+            Phylo.draw( tree_Bio, axes = ax)
+        else:
+            tree_Bio = self._make_Bio_tree()
+            Phylo.draw( tree_Bio, axes = ax) 
+        return ax
     
-    totalDistance = totalDistance/ len(treelist)
-    return totalDistance
+    def branch_resolution(self):
+        """Returns branch resolution of self.
+        
+        The branch resolution is defined by:
+        
+        .. math::
+
+            \\frac{\\text{# internal edges in self}}{\\text{self.n_taxa} - 3}
+
+            
+
+        Returns
+        -------
+        float
+            Branch resolution
+        """
+        # returns how resolved tree is w.r.t. #internal branches
+        possible_num = self.n_taxa - 3 # dendropy Tree stores n external edges + 1 external edge connecting to seed_node. There are n-3 internal edges.
+        internal_num = len(self.internal_edges(exclude_seed_edge=True))
+        return internal_num / possible_num
+    
+    def quartet_resolution(self):
+        """Returns quartet resolution of self.
+        
+        The quartet resolution is defined by:
+        
+        .. math::
+
+            \\frac{\\text{# resolved quartets in self}}{\\binom{n}{4}}
+
+            
+
+        Returns
+        -------
+        float
+            Quartet resolution
+        """
+        # returns how resolved tree is w.r.t. #internal branches
+        return _quartet_resolution(self)
+
+    def STD_greedy_pruning(self, treelist, normalized=True):
+        """Apply greedy pruning algorithm w.r.t. STD loss.
+
+        Parameters
+        ----------
+        treelist : TreeList_with_support
+            Input trees to evaluate STD loss.
+        normalized : bool, optional
+            Whether to normalized STD loss, by default True
+
+        Returns
+        -------
+        Tree_with_support
+            Consensus tree after applying greedy pruning
+        """
+        self_copy = self.clone(depth=1)
+        srp = std_risk_prune(self_copy, treelist, normalized)
+        srp.greedy_pruning()
+        return srp.current_tree
+    
+    def SQD_greedy_pruning(self, treelist, parent_dir=None):
+        """Apply greedy pruning algorithm w.r.t. SQD loss.
+
+        Parameters
+        ----------
+        treelist : TreeList_with_support
+            Input trees to evaluate SQD loss.
+
+        Returns
+        -------
+        Tree_with_support
+            Consensus tree after applying greedy pruning
+        """
+        self_copy = self.clone(depth=1)
+        res, reduction_list = SQD_pruning(self_copy, treelist, parent_dir)
+        return res
+    
+    def BS_prune(self, treelist, threshold=0.5):
+        """Prune all edges that has branch support <= threshold.
+
+        Parameters
+        ----------
+        treelist : TreeList_with_support
+            Input trees to compute branch support
+        threshold : float, optional
+            Threshold of branch support, by default 0.5
+
+        Returns
+        -------
+        Tree_with_support
+            Thresholded consensus
+        """
+        if self.branch_support is None:
+            self.compute_branch_support(treelist)
+        
+        bipars = []; branch_support = dict(); transfer_support = dict()
+        for node in self.postorder_node_iter():
+            splitint = node.bipartition.split_as_int()
+            if self.branch_support[splitint] > threshold:
+                bipars.append(node.bipartition)
+                branch_support[splitint] = self.branch_support[splitint]
+        thresholded = Tree_with_support(dendropy.Tree.from_bipartition_encoding(bipars, self.taxon_namespace), branch_support = branch_support, transfer_support = transfer_support)
+        return thresholded
+         
+        
+    @classmethod
+    def get(cls, **kwargs):
+        """get
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
+        tree = dendropy.Tree.get(**kwargs)
+        branch_support = kwargs.pop("branch_support", None)
+        transfer_support = kwargs.pop("transfer_support", None)
+        return cls(tree, branch_support = branch_support, transfer_support = transfer_support)
 
 
 def _create_refinfo(bipartitions, n_taxa):
-    """Helper function for TBE
+    """Helper function for transfer_support
 
     Parameters
     ----------
@@ -172,7 +606,7 @@ def _create_refinfo(bipartitions, n_taxa):
     return refinfo
 
 def _minDist(refinfo_b, tree):
-    """Helper minDist function for computing TBE.
+    """Helper minDist function for computing transfer_support.
 
     Parameters
     ----------
@@ -234,662 +668,6 @@ def _minDist(refinfo_b, tree):
     
     return d
 
-def quartet_resolution(tree, parent_dir = None, normalized=True):
-    
-    if parent_dir is None:
-        conname = "__" + _randomname(10) + ".nwk"
-        conname2 = "__" + _randomname(10) + ".nwk"
-    else:
-        conname = parent_dir + "/__" + _randomname(10) + ".nwk"
-        conname2 = parent_dir + "__" + _randomname(10) + ".nwk"
-    tree.write(path = conname, schema="newick", suppress_rooting=True)
-    tree.write(path = conname2, schema="newick", suppress_rooting=True)
-    p= subprocess.run(["quartet_dist", "-v", conname, conname2],capture_output=True, text=True)
-    keys = ["number_of_leaves", "number_of_all_quartets", "quartet_dist", "normalized_quartet_dist", "number_of_resolved_quartets_agreed", 
-            "normalized_number_of_resolved_quartets_agreed", "number_of_unresolved_quartets_agreed", "normalized_number_of_unresolved_quaretets_agreed"]
-    items = [float(item) for item in p.stdout.split()]
-    q_dict = dict(zip(keys, items))
-    #print("deleting now", flush=True)
-    for item in [conname,conname2]:
-        if os.path.exists(item):
-            os.remove(item)
-    if normalized:
-        return (q_dict["number_of_all_quartets"] - q_dict["number_of_unresolved_quartets_agreed"])/q_dict["number_of_all_quartets"]
-    else:
-        return (q_dict["number_of_all_quartets"] - q_dict["number_of_unresolved_quartets_agreed"])
-
-def quartet_resolution2(tree_string, parent_dir = None, normalized=True):
-    
-    if parent_dir is None:
-        conname = "__" + _randomname(10) + ".nwk"
-        conname2 = "__" + _randomname(10) + ".nwk"
-    else:
-        conname = parent_dir + "/__" + _randomname(10) + ".nwk"
-        conname2 = parent_dir + "__" + _randomname(10) + ".nwk"
-    with open(conname, "w") as f:
-        f.write(tree_string)
-    with open(conname2, "w") as f:
-        f.write(tree_string)
-    p= subprocess.run(["quartet_dist", "-v", conname, conname2],capture_output=True, text=True)
-    keys = ["number_of_leaves", "number_of_all_quartets", "quartet_dist", "normalized_quartet_dist", "number_of_resolved_quartets_agreed", 
-            "normalized_number_of_resolved_quartets_agreed", "number_of_unresolved_quartets_agreed", "normalized_number_of_unresolved_quaretets_agreed"]
-    items = [float(item) for item in p.stdout.split()]
-    #q_dict = dict(zip(keys, items))
-    #print("deleting now", flush=True)
-    for item in [conname,conname2]:
-        if os.path.exists(item):
-            os.remove(item)
-    num_all_quartets = items[1]
-    num_unresolved_quartets_agreed = np.array(items[6::8])
-    if normalized:
-        return (num_all_quartets - num_unresolved_quartets_agreed)/num_all_quartets
-    else:
-        return (num_all_quartets - num_unresolved_quartets_agreed)
-
-
-def tqdist_fp_fn(estimate, true, parent_dir = None):
-    executable_name = 'quartet_dist'
-    executable_path = shutil.which(executable_name)
-    if executable_path is None:
-        sys.exit(f"Error: '{executable_name}' not found. You need to install tqDist package on your PATH.")
-    else:
-        #print(f"Using executable '{executable_name}' found at {executable_path}...")
-        pass
-        # Proceed with execution
-    if parent_dir is None:
-        estimatename = "__" + _randomname(10) + ".nwk"
-        truename = "__" + _randomname(10) + ".nwk"
-    else:
-        estimatename = os.path.join(parent_dir,  "__" + _randomname(10) + ".nwk")
-        truename = os.path.join(parent_dir, "__" + _randomname(10) + ".nwk")
-    
-    estimate.write(path = estimatename, schema="newick", suppress_rooting=True)
-    true.write(path = truename, schema="newick", suppress_rooting=True)   
-    
-    p= subprocess.run(["quartet_dist", "-v", estimatename, truename],capture_output=True, text=True)
-    keys = ["number_of_leaves", "number_of_all_quartets", "quartet_dist", "normalized_quartet_dist", "number_of_resolved_quartets_agreed", 
-            "normalized_number_of_resolved_quartets_agreed", "number_of_unresolved_quartets_agreed", "normalized_number_of_unresolved_quaretets_agreed"]
-    items = [float(item) for item in p.stdout.split()]
-    tqdist_dict = dict(zip(keys, items))
-    
-    for item in [estimatename,truename]:
-        if os.path.exists(item):
-            os.remove(item)
-
-    
-    # check resolution
-    estimate_num_resolved = quartet_resolution(estimate, parent_dir=parent_dir, normalized=False)
-    estimate_num_unresolved = tqdist_dict["number_of_all_quartets"] - estimate_num_resolved
-    true_num_resolved = quartet_resolution(true, parent_dir=parent_dir, normalized=False)
-    true_num_unresolved = tqdist_dict["number_of_all_quartets"] - true_num_resolved
-    
-    # compute number of each component
-    unresolved_resolved_fn = estimate_num_unresolved -  tqdist_dict["number_of_unresolved_quartets_agreed"]
-    resolved_unresolved_fp = true_num_unresolved -  tqdist_dict["number_of_unresolved_quartets_agreed"]
-    resolved_resolved_disagree = estimate_num_resolved - resolved_unresolved_fp - tqdist_dict['number_of_resolved_quartets_agreed']
-    assert resolved_resolved_disagree == (true_num_resolved - unresolved_resolved_fn - tqdist_dict['number_of_resolved_quartets_agreed'])
-    
-    # compute fn and fp
-    fn = unresolved_resolved_fn + resolved_resolved_disagree
-    fp = resolved_unresolved_fp + resolved_resolved_disagree
-    return fp, fn
-    
-
-def quartet_dist_fp_fn(estimate, inputs, parent_dir=None):
-    """Compute false positives and false negatives of symmetric quartet distance.
-    
-
-    Parameters
-    ----------
-    estimate : Tree_with_support
-        Estimates.
-    inputs : Tree_with_support or TreeList_with_support
-        Input trees to evaluate the estimate. 
-    parent_dir : str, optional
-        Path to place intermediate files, by default None (place files in the folder of execution).
-        
-    Returns
-    -------
-    (float, float) or (numpy.ndarray, numpy.ndarray)
-        False positives and False negatives.
-    """
-    if isinstance(inputs, Tree_with_support):
-        fp, fn = tqdist_fp_fn(estimate, inputs, parent_dir=parent_dir)
-        return fp, fn
-    elif isinstance(inputs, TreeList_with_support):
-        inputs_string = inputs.as_string("newick", suppress_rooting=True)
-        fp, fn = tqdist_fp_fn2(estimate, inputs_string, len(inputs), parent_dir = parent_dir)
-        return fp, fn
-    else:
-        print("Please provide an instance of Tree_with_support or TreeList_with_support as inputs.")
-        sys.exit(1)
-    
-
-def tqdist_fp_fn2(estimate, input_trees_string, n_trees, parent_dir = None):
-    executable_name = 'pairs_quartet_dist'
-    executable_path = shutil.which(executable_name)
-    if executable_path is None:
-        sys.exit(f"Error: '{executable_name}' not found. You need to install tqDist package on your PATH.")
-    else:
-        #print(f"Using executable '{executable_name}' found at {executable_path}...")
-        pass
-        # Proceed with execution
-    if parent_dir is None:
-        estimatename = "__" + _randomname(10) + ".nwk"
-        truename = "__" + _randomname(10) + ".nwk"
-    else:
-        estimatename = os.path.join(parent_dir,  "__" + _randomname(10) + ".nwk")
-        truename = os.path.join(parent_dir, "__" + _randomname(10) + ".nwk")
-    estimate_string = estimate.as_string(schema="newick", suppress_rooting = True)
-    with open(estimatename, "w") as f:
-        f.write(estimate_string*n_trees)
-    #estimate.write(path = estimatename, schema="newick", suppress_rooting=True)
-    with open(truename, "w") as f:
-        f.write(input_trees_string)
-    #input_trees.write(path = truename, schema="newick", suppress_rooting=True)   
-    
-    p= subprocess.run(["pairs_quartet_dist", "-v", estimatename, truename],capture_output=True, text=True)
-    # keys = ["number_of_leaves", "number_of_all_quartets", "quartet_dist", "normalized_quartet_dist", "number_of_resolved_quartets_agreed", 
-    #         "normalized_number_of_resolved_quartets_agreed", "number_of_unresolved_quartets_agreed", "normalized_number_of_unresolved_quaretets_agreed"]
-    items = [float(item) for item in p.stdout.split()]
-    num_unresolved_quartets_agreed = np.array(items[6::8])
-    num_resolved_quartets_agreed = np.array(items[4::8])
-    
-    assert len(num_unresolved_quartets_agreed) == n_trees
-    assert len(num_resolved_quartets_agreed) == n_trees
-    
-    num_all_quartets = items[1]
-    
-    #tqdist_dict = dict(zip(keys, items))
-    
-    for item in [estimatename,truename]:
-        if os.path.exists(item):
-            os.remove(item)
-    
-    # check resolution
-    estimate_num_resolved = quartet_resolution(estimate, parent_dir=parent_dir, normalized=False)
-    estimate_num_unresolved = num_all_quartets - estimate_num_resolved
-    true_num_resolved = quartet_resolution2(input_trees_string, parent_dir=parent_dir, normalized=False)
-    true_num_unresolved = num_all_quartets - true_num_resolved
-    
-    # compute number of each component
-    unresolved_resolved_fn = estimate_num_unresolved -  num_unresolved_quartets_agreed
-    resolved_unresolved_fp = true_num_unresolved -  num_unresolved_quartets_agreed
-    resolved_resolved_disagree = estimate_num_resolved - resolved_unresolved_fp - num_resolved_quartets_agreed
-    assert (resolved_resolved_disagree == (true_num_resolved - unresolved_resolved_fn - num_resolved_quartets_agreed)).all()
-    
-    # compute fn and fp
-    fn = unresolved_resolved_fn + resolved_resolved_disagree
-    fp = resolved_unresolved_fp + resolved_resolved_disagree
-    return fp, fn
-
-# def tqdist_fp_fn2(consensus_tree, input_trees_string, n_trees, parent_dir = None):
-#     # consensus_tree: one tree: can be non-binary
-#     # input_trees_string: Newick String of trees: ASSUMED TO BE BINARY
-#     # n_trees: number of input treess
-    
-#     n = n_trees # number of input trees
-    
-
-#     executable_name = 'pairs_quartet_dist'
-#     executable_path = shutil.which(executable_name)
-
-#     if executable_path is None:
-#         sys.exit(f"Error: '{executable_name}' not found. You need to install tqDist package on your PATH.")
-#     else:
-#         #print(f"Using executable '{executable_name}' found at {executable_path}...")
-#         pass
-#         # Proceed with execution
-
-#     if parent_dir is None:
-#         conname = "__" + _randomname(10) + ".nwk"
-#         consname = "__" + _randomname(10) + ".nwk"
-#         inputname = "__" + _randomname(10) + ".nwk"
-#     else:
-#         conname = os.path.join(parent_dir,  "__" + _randomname(10) + ".nwk")
-#         consname = os.path.join(parent_dir, "__" + _randomname(10) + ".nwk")
-#         inputname = os.path.join(parent_dir , "__" + _randomname(10) + ".nwk")
-
-#     try:
-#         consensus_tree.write(path=conname, schema="newick", suppress_rooting = True)
-#         # write n * consensus trees 
-#         consensus_nwk_str = consensus_tree.as_string(schema="newick", suppress_rooting = True)
-#         with open(consname, "w") as f:
-#             f.write(consensus_nwk_str*n)
-        
-#         #write input trees
-#         with open(inputname, "w") as f:
-#             f.write(input_trees_string)
-#         #input_trees.write(path = "__tmp__input.nwk", schema="newick", suppress_rooting=True)
-        
-#         # run pairs_quartet_dist
-#         p= subprocess.run(["pairs_quartet_dist", "-v", consname, inputname],capture_output=True, text=True)
-#         if p.stderr != '':
-#             print("error executing tqdist:", p.stderr)
-#             sys.exit(1)
-#         quartet_dist_list = [float(item) for item in p.stdout.split()][2::8]
-#         quartet_dists = np.array(quartet_dist_list)
-        
-        
-#         p2 = subprocess.run(["quartet_dist", "-v", conname, conname],capture_output=True, text=True)
-#         if p2.stderr != '':
-#             print("error executing tqdist:", p2.stderr)
-#             sys.exit(1)
-#         consensus_num_unresolved = [float(item) for item in p2.stdout.split()][6]
-        
-        
-        
-        
-#     p= subprocess.run(["quartet_dist", "-v", estimatename, truename],capture_output=True, text=True)
-#     keys = ["number_of_leaves", "number_of_all_quartets", "quartet_dist", "normalized_quartet_dist", "number_of_resolved_quartets_agreed", 
-#             "normalized_number_of_resolved_quartets_agreed", "number_of_unresolved_quartets_agreed", "normalized_number_of_unresolved_quaretets_agreed"]
-#     items = [float(item) for item in p.stdout.split()]
-#     tqdist_dict = dict(zip(keys, items))
-    
-#     for item in [estimatename,truename]:
-#         if os.path.exists(item):
-#             os.remove(item)
-
-    
-#     # check resolution
-#     estimate_num_resolved = quartet_resolution(estimate, parent_dir=parent_dir, normalized=False)
-#     estimate_num_unresolved = tqdist_dict["number_of_all_quartets"] - estimate_num_resolved
-#     true_num_resolved = quartet_resolution(true, parent_dir=parent_dir, normalized=False)
-#     true_num_unresolved = tqdist_dict["number_of_all_quartets"] - true_num_resolved
-    
-#     # compute number of each component
-#     unresolved_resolved_fn = estimate_num_unresolved -  tqdist_dict["number_of_unresolved_quartets_agreed"]
-#     resolved_unresolved_fp = true_num_unresolved -  tqdist_dict["number_of_unresolved_quartets_agreed"]
-#     resolved_resolved_disagree = estimate_num_resolved - resolved_unresolved_fp - tqdist_dict['number_of_resolved_quartets_agreed']
-#     assert resolved_resolved_disagree == (true_num_resolved - unresolved_resolved_fn - tqdist_dict['number_of_resolved_quartets_agreed'])
-    
-#     # compute fn and fp
-#     fn = unresolved_resolved_fn + resolved_resolved_disagree
-#     fp = resolved_unresolved_fp + resolved_resolved_disagree
-
-#         # get number of unresolved quartet trees
-#         p2 = subprocess.run(["pairs_quartet_dist", "-v", conname, conname],capture_output=True, text=True)
-#         if p2.stderr != '':
-#             print("error executing tqdist:", p2.stderr)
-#             sys.exit(1)
-#         num_unresolved = [float(item) for item in p2.stdout.split()][6]
-
-#         num_unmatched_resolved = quartet_dists - num_unresolved # length n
-        
-#         fn = quartet_dists # =  num_unresolved + num_unmatched_resolved
-#         fp = num_unmatched_resolved
-        
-#         for item in [conname, consname, inputname]:
-#             if os.path.exists(item):
-#                 os.remove(item)
-        
-#     except:
-#         # delete temporary file
-#         for item in [conname, consname, inputname]:
-#             if os.path.exists(item):
-#                 os.remove(item)
-#         print("Error computing quartet distance.")
-#         sys.exit(1)
-
-#     return fp, fn
-  
-
-def quartet_loss2(consensus_tree, input_trees_string, n_trees, normalized=True, parent_dir = None):
-    # use tqdist's `pairs_quartet_dist` function
-    fp, fn = tqdist_fp_fn2(consensus_tree, input_trees_string, n_trees, parent_dir) # fp, fn are ndarrays of length n=len(input_trees)
-    loss = np.sum(fp+fn)
-    if normalized:
-        loss = loss/n_trees
-    return loss
-
-def quartet_pruning(consensus_tree, input_trees, parent_dir=None):
-    bipartitions = np.array(consensus_tree.encode_bipartitions())
-    bipartition_ints = np.array([bipartition.split_as_int() for bipartition in bipartitions])
-    internal_edges = consensus_tree.internal_edges(exclude_seed_edge=True)
-    internal_bipartitions = np.array([edge.bipartition for edge in internal_edges])
-    internal_bipartition_ints = np.array([bipartition.split_as_int() for bipartition in internal_bipartitions])
-    internal_edge_dict = {edge.bipartition.split_as_int():edge for edge in internal_edges}
-
-    #external_bipartition_dict = {bipar_int: all_bipartition_dict[bipar_int] for bipar_int in all_bipartition_dict.keys() if bipar_int not in internal_bipartitions}
-    #external_bipartitions = np.array(list(external_bipartition_dict.values()))
-
-    #mask = [True for i in range(len(bipartitions))]
-    taxon_namespace = consensus_tree.taxon_namespace
-    trees_string = input_trees.as_string("newick", suppress_rooting=True)
-    n_trees = len(input_trees)
-    current_loss = quartet_loss2(consensus_tree, trees_string, n_trees, False, parent_dir)
-    next_updates = internal_bipartition_ints
-    #best_mask = [True for i in range(len(bipartitions))]
-    loss_reduction_dict = {bipar_int: 0 for bipar_int in internal_bipartition_ints}
-    iteration = 0
-    reduction_list = []
-    while True:
-        iteration += 1
-        st = time.time()
-        for bipar_int in next_updates:
-            if bipar_int in internal_bipartition_ints:
-                mask = bipar_int!=bipartition_ints
-                pruned_tree = dendropy.Tree.from_bipartition_encoding(bipartitions[mask], taxon_namespace=taxon_namespace)
-                loss = quartet_loss2(pruned_tree, trees_string, n_trees, False, parent_dir)
-                # if current_loss - loss > 0:
-                #     print(f"loss_reduction of {bipar_int}: ", current_loss - loss)
-                loss_reduction_dict[bipar_int] = current_loss - loss # if risk reduction happends, this is a positive value
-        
-        # look for edge that induces maximum risk reduction
-        max_key = max(loss_reduction_dict, key=loss_reduction_dict.get)
-        max_value = loss_reduction_dict[max_key]
-        # print(f"{max_key} will be pruned")
-        renew = (max_value > 0) # if renew = True, prune. otherwise, don't prune.
-        if not renew:
-            break # the current `consensus_tree` is the best
-        # if renew, we continue
-
-        ## update next_updates
-        next_updates = [edge.bipartition.split_as_int() for edge in internal_edge_dict[max_key].adjacent_edges]
-        # print(next_updates)
-        ## update other variables
-        best_mask = max_key!=bipartition_ints
-        consensus_tree = dendropy.Tree.from_bipartition_encoding(bipartitions[best_mask], taxon_namespace=taxon_namespace)
-        bipartitions = np.array(consensus_tree.encode_bipartitions())
-        bipartition_ints = np.array([bipartition.split_as_int() for bipartition in bipartitions])
-        internal_edges = consensus_tree.internal_edges(exclude_seed_edge=True)
-        internal_bipartitions = np.array([edge.bipartition for edge in internal_edges])
-        internal_bipartition_ints = np.array([bipartition.split_as_int() for bipartition in internal_bipartitions])
-        internal_edge_dict = {edge.bipartition.split_as_int():edge for edge in internal_edges}
-        current_loss = current_loss - max_value
-        loss_reduction_dict.pop(max_key)
-        ed = time.time()
-        reduction_list.append(max_value)
-        print(f"iteration {iteration} time: ", ed-st, " risk reduction: ", max_value)
-    return consensus_tree, reduction_list
-
-
-class Tree_with_support(dendropy.Tree):
-    """Child class of `dendropy.datamodel.treemodel.Tree`, with supportfor support values.
-    
-    Attributes:
-        x : 1
-    """
-    def __init__(self, *args, **kwargs):
-        bootstrap_support = kwargs.pop("bootstrap_support", None)
-        TBE_support = kwargs.pop("TBE_support", None)
-        super().__init__(*args, **kwargs)
-        self.bootstrap_support = bootstrap_support
-        self.TBE_support = TBE_support
-        self.n_taxa = len(self.taxon_namespace)
-        self.encode_bipartitions() #some methods (from_bipartitions etc) seem to produce a tree with bad bipartition_encoding, so renew it 
-
-    def compute_bootstrap(self, treelist):
-        """Compute bootstrap values of self against input ``treelist`` and update `self.bootstrap_support`
-
-        Parameters
-        ----------
-        treelist : TreeList_with_support
-            List of trees to evaluate bootstrap support against.
-
-        Returns
-        -------
-        None
-        """
-        assert self.taxon_namespace == treelist.taxon_namespace
-        bootstrap_support = dict()
-        if self.bipartition_encoding is None:
-            self.encode_bipartitions()
-        for bipar in self.bipartition_encoding:
-            key = bipar.split_as_int()
-            if key in treelist.edge_dict.keys():
-                bootstrap_support[key] = treelist.edge_dict[key]/len(treelist)
-            else:
-                bootstrap_support[key] = 0
-        self.bootstrap_support = bootstrap_support
-        return None
-    
-    
-    def compute_TBE(self, treelist):
-        """Compute TBE support of self against input ``treelist`` and update `self.TBE_support`
-
-        Parameters
-        ----------
-        treelist : TreeList_with_support
-            List of trees to evaluate TBE support against.
-
-        Returns
-        -------
-        None
-        """
-        assert self.taxon_namespace == treelist.taxon_namespace
-        if self.bipartition_encoding  is None:
-            self.encode_bipartitions()
-        bipartitions = self.bipartition_encoding
-        bipartitions_ints = [bipar.split_as_int() for bipar in bipartitions]
-        TBE_list = TBE(bipartitions, treelist)
-        self.TBE_support = dict(zip(bipartitions_ints, TBE_list))
-        return None
-
-    def clone(self, depth=1):
-        """clone
-
-        Parameters
-        ----------
-        depth : int, optional
-            _description_, by default 1
-
-        Returns
-        -------
-        _type_
-            _description_
-        """
-        cloned_tree = super().clone(depth=1)
-        return Tree_with_support(cloned_tree, bootstrap_support=self.bootstrap_support, TBE_support = self.TBE_support)
-        
-
-    def _make_Bio_tree(self, support = None):
-        """Helper function to convert self to Bio tree.
-
-        Parameters
-        ----------
-        support : dict or None, optional
-            Support values to provide to Bio tree.   
-            If dict, it should have integer representing each bipartition as key and support values as value.
-            If None, no support values are provided to Bio tree.
-            By default None
-
-        Returns
-        -------
-        Bio.Phylo.Newick.Tree
-            Newly created Bio tree.
-        """
-        tree_Bio = Phylo.read(file = StringIO(self.as_string(schema="newick")) , format = "newick" )
-        if support is not None:
-            ##### start -- add support information to each edge
-            for clade in tree_Bio.find_clades(order="postorder"):
-                terminals = [item.name for item in clade.get_terminals()]
-                taxonnames_array = np.array([item.label for item in self.taxon_namespace])
-                digits = [ np.where( item == taxonnames_array )[0][0] for item in terminals ]
-                clade_bool = [False for i in range(self.n_taxa)]
-                for digit in digits:
-                    clade_bool[-(digit+1)] = True
-                clade_bit = Bits(clade_bool) # bitstring corresponding to the clade
-                if int(clade_bit.bin[-1]) == 1:
-                    clade_bit = (~clade_bit) # convert to least significant 0 format
-                if clade_bit.uint in support.keys():
-                    clade_support = support[clade_bit.uint]
-                    clade.confidence = clade_support
-            #####  end  -- add support information to each edge
-        return tree_Bio  
-
-    def plot_Bio(self, ax = None, type = "plain", decimals = None):
-        """Function to plot the tree using Bio.Phylo package.
-        
-        This function converts self to Bio.Phylo tree, and plot using Bio.Phylo's functionality.
-
-        Parameters
-        ----------
-        ax : matplotlib.axes or None, optional
-            Axes to plot the tree on. If None, new figure will be created.
-        type : str, optional
-            The type of support values to plot, by default "plain" (no support values are plotted).
-            If not "plain", it should be one of the followings:
-            
-            - "bootstrap" : bootstrap support
-            - "TBE" : TBE support
-            
-            If these support values are not computed before calling this function, it will use the option "plain".
-            
-            Please compute the support values beforehand.
-        decimals : int or None, optional
-            Decimal precision of support values, by default None (no rounding).
-        """
-
-        ## type: one of ["plain", "bootstrap", "TBE"]. If other name is provided, it will automatically plot "plain" one.
-        ## decimals: int, if provided, round confidence number at that number
-
-        if ax is None:
-            fig, ax = plt.subplots(figsize = (20,20))
-        tree_Bio = Phylo.read(file = StringIO(self.as_string(schema="newick")) , format = "newick" )
-
-        if type == "bootstrap":
-            if self.bootstrap_support is None:
-                warnings.warn("Bootstrap values has not been provided to the instance. Plotting the plain tree.")
-            if decimals is not None:
-                boot = {k:np.round(v, decimals=decimals) for k, v in self.bootstrap_support.items()}
-            else:
-                boot = self.bootstrap_support
-            tree_Bio = self._make_Bio_tree(boot)
-            Phylo.draw( tree_Bio, axes = ax)
-        elif type == "TBE":
-            if self.TBE_support is None:
-                warnings.warn("TBE values has not been provided to the instance. Plotting the plain tree.")
-            if decimals is not None:
-                tbe_supp = {k:np.round(v, decimals=decimals) for k, v in self.TBE_support.items()}
-            else:
-                tbe_supp = self.TBE_support
-            tree_Bio = self._make_Bio_tree(tbe_supp)
-            Phylo.draw( tree_Bio, axes = ax)
-        else:
-            tree_Bio = self._make_Bio_tree()
-            Phylo.draw( tree_Bio, axes = ax) 
-        return ax
-    
-    def branch_resolution(self):
-        """Returns branch resolution of self.
-        
-        The branch resolution is defined by:
-        
-        .. math::
-
-            \\frac{\\text{# internal edges in self}}{\\text{self.n_taxa} - 3}
-
-            
-
-        Returns
-        -------
-        float
-            Branch resolution
-        """
-        # returns how resolved tree is w.r.t. #internal branches
-        possible_num = self.n_taxa - 3 # dendropy Tree stores n external edges + 1 external edge connecting to seed_node. There are n-3 internal edges.
-        internal_num = len(self.internal_edges(exclude_seed_edge=True))
-        return internal_num / possible_num
-    
-    def quartet_resolution(self):
-        """Returns quartet resolution of self.
-        
-        The quartet resolution is defined by:
-        
-        .. math::
-
-            \\frac{\\text{# resolved quartets in self}}{\\binom{n}{4}}
-
-            
-
-        Returns
-        -------
-        float
-            Quartet resolution
-        """
-        # returns how resolved tree is w.r.t. #internal branches
-        return quartet_resolution(self)
-
-    def std_greedy(self, treelist, normalized=True):
-        """Apply greedy pruning algorithm w.r.t. STD loss.
-
-        Parameters
-        ----------
-        treelist : TreeList_with_support
-            Input trees to evaluate STD loss.
-        normalized : bool, optional
-            Whether to normalized STD loss, by default True
-
-        Returns
-        -------
-        Tree_with_support
-            Consensus tree after applying greedy pruning
-        """
-        self_copy = self.clone(depth=1)
-        srp = std_risk_prune(self_copy, treelist, normalized)
-        srp.greedy_pruning()
-        return srp.current_tree
-    
-    def sqd_greedy(self, treelist, parent_dir=None):
-        """Apply greedy pruning algorithm w.r.t. SQD loss.
-
-        Parameters
-        ----------
-        treelist : TreeList_with_support
-            Input trees to evaluate SQD loss.
-
-        Returns
-        -------
-        Tree_with_support
-            Consensus tree after applying greedy pruning
-        """
-        self_copy = self.clone(depth=1)
-        res, reduction_list = quartet_pruning(self_copy, treelist, parent_dir)
-        return res
-    
-    def BS_prune(self, treelist, threshold=0.5):
-        """Prune all edges that has branch support <= threshold.
-
-        Parameters
-        ----------
-        treelist : TreeList_with_support
-            Input trees to compute branch support
-        threshold : float, optional
-            Threshold of branch support, by default 0.5
-
-        Returns
-        -------
-        Tree_with_support
-            Thresholded consensus
-        """
-        if self.bootstrap_support is None:
-            self.compute_bootstrap(treelist)
-        
-        bipars = []; bootstrap_support = dict(); TBE_support = dict()
-        for node in self.postorder_node_iter():
-            splitint = node.bipartition.split_as_int()
-            if self.bootstrap_support[splitint] > threshold:
-                bipars.append(node.bipartition)
-                bootstrap_support[splitint] = self.bootstrap_support[splitint]
-        thresholded = Tree_with_support(dendropy.Tree.from_bipartition_encoding(bipars, self.taxon_namespace), bootstrap_support = bootstrap_support, TBE_support = TBE_support)
-        return thresholded
-         
-        
-    @classmethod
-    def get(cls, **kwargs):
-        """get
-
-        Returns
-        -------
-        _type_
-            _description_
-        """
-        tree = dendropy.Tree.get(**kwargs)
-        bootstrap_support = kwargs.pop("bootstrap_support", None)
-        TBE_support = kwargs.pop("TBE_support", None)
-        return cls(tree, bootstrap_support = bootstrap_support, TBE_support = TBE_support)
-
 
 
 def _minDist_and_match2(refinfo_b, tree):
@@ -948,7 +726,7 @@ def _minDist_and_match2(refinfo_b, tree):
 
 
 
-def _TBE_and_match2(bipartitions, tree:Tree_with_support):
+def _transfer_support_and_match2(bipartitions, tree:Tree_with_support):
     n_taxa = len(tree.taxon_namespace)
     refinfo = _create_refinfo(bipartitions, n_taxa)
     n_bipartitions = len(bipartitions)
@@ -983,7 +761,7 @@ def _TBE_and_match2(bipartitions, tree:Tree_with_support):
     
     return totalSupport, matched_list, secondSupport, second_match_list
 
-def _unnormalized_TBE_and_match2(bipartitions, tree:Tree_with_support):
+def _unnormalized_transfer_support_and_match2(bipartitions, tree:Tree_with_support):
     n_taxa = len(tree.taxon_namespace)
     refinfo = _create_refinfo(bipartitions, n_taxa)
     n_bipartitions = len(bipartitions)
@@ -1033,29 +811,29 @@ class std_risk_prune:
             self.current_tree.encode_bipartitions()
         bipartitions = self.current_tree.bipartition_encoding
         bipartition_ints = [bipar.split_as_int() for bipar in bipartitions]
-        print("computing TBE...", flush=True)
+        print("computing transfer_support...", flush=True)
         if normalized:
-            TBE_list = TBE(bipartitions, self.trees)
+            transfer_support_list = transfer_support(bipartitions, self.trees)
         else:
-            TBE_list = unnormalized_TBE(bipartitions, self.trees)
-        self.TBE_support = dict(zip(bipartition_ints, TBE_list))
+            transfer_support_list = unnormalized_transfer_support(bipartitions, self.trees)
+        self.transfer_support = dict(zip(bipartition_ints, transfer_support_list))
         if normalized:
-            self.fp = np.sum([1-support for key, support in self.TBE_support.items()]) * self.n_trees
+            self.fp = np.sum([1-support for key, support in self.transfer_support.items()]) * self.n_trees
         else:
-            self.fp = np.sum([support for key, support in self.TBE_support.items()]) * self.n_trees
+            self.fp = np.sum([support for key, support in self.transfer_support.items()]) * self.n_trees
         # use edge dict
         self.edge_dict = self.trees.edge_dict
         self.trees_bipartition_ints = list(self.edge_dict.keys())
         self.trees_bipartitions = [dendropy.Bipartition(leafset_bitmask = item, tree_leafset_bitmask = 2**self.current_tree.n_taxa - 1) for item in self.trees_bipartition_ints]
-        print("computing TBE for the other side...", flush=True)
+        print("computing transfer_support for the other side...", flush=True)
         if normalized:
-            supports, matched_list, second_supports, second_matched_list = _TBE_and_match2(self.trees_bipartitions, self.current_tree)
+            supports, matched_list, second_supports, second_matched_list = _transfer_support_and_match2(self.trees_bipartitions, self.current_tree)
         else:
-            supports, matched_list, second_supports, second_matched_list = _unnormalized_TBE_and_match2(self.trees_bipartitions, self.current_tree)
+            supports, matched_list, second_supports, second_matched_list = _unnormalized_transfer_support_and_match2(self.trees_bipartitions, self.current_tree)
 
         # initialize match_dict, reverse_match_dict, 
-        self.match_dict = dict(zip(self.TBE_support.keys(), [list() for i in range(len(self.TBE_support))]))
-        self.second_match_dict = dict(zip(self.TBE_support.keys(), [list() for i in range(len(self.TBE_support))]))
+        self.match_dict = dict(zip(self.transfer_support.keys(), [list() for i in range(len(self.transfer_support))]))
+        self.second_match_dict = dict(zip(self.transfer_support.keys(), [list() for i in range(len(self.transfer_support))]))
         self.reverse_match_dict = dict(zip(self.trees_bipartition_ints, [list() for i in range(len(self.trees_bipartition_ints))]))
         self.match_dict[-1] = list()
         self.second_match_dict[-1] = list()
@@ -1078,9 +856,9 @@ class std_risk_prune:
 
     def find_risk_reduction(self, prune_bipar_int):
         if self.normalized:
-            fp_reduction = (1-self.TBE_support[prune_bipar_int]) * self.n_trees #positive value
+            fp_reduction = (1-self.transfer_support[prune_bipar_int]) * self.n_trees #positive value
         else:
-            fp_reduction = self.TBE_support[prune_bipar_int] * self.n_trees
+            fp_reduction = self.transfer_support[prune_bipar_int] * self.n_trees
         # compute fn_increase
         ## identify bipartitions that needs rematch
         matched_bipars = self.match_dict[prune_bipar_int]
@@ -1099,9 +877,9 @@ class std_risk_prune:
     def prune(self, prune_bipar_int):
         #print("before prune rsupp: ", self.rsupp_dict[3713820117856141855489523712], "second: ", self.second_supp_dict[3713820117856141855489523712])
         if self.normalized:
-            fp_reduction = (1-self.TBE_support[prune_bipar_int]) * self.n_trees
+            fp_reduction = (1-self.transfer_support[prune_bipar_int]) * self.n_trees
         else:
-            fp_reduction = self.TBE_support[prune_bipar_int] * self.n_trees
+            fp_reduction = self.transfer_support[prune_bipar_int] * self.n_trees
         matched_bipars = self.match_dict[prune_bipar_int]
         rematch_bipartitions = {item.split_as_int():item for item in self.trees_bipartitions if item.split_as_int() in matched_bipars}
         rematch_bipartitions = [rematch_bipartitions[item] for item in matched_bipars]
@@ -1117,18 +895,18 @@ class std_risk_prune:
                 for i in range(len(matched_bipars))]) # positive value
         new_bipartitions = [deepcopy(bipar) for bipar in self.current_tree.bipartition_encoding if bipar.split_as_int()!=prune_bipar_int]
         new_tree = Tree_with_support(dendropy.Tree.from_bipartition_encoding(new_bipartitions, self.current_tree.taxon_namespace),
-                                        TBE_support = self.TBE_support)
+                                        transfer_support = self.transfer_support)
         self.current_tree = new_tree
         self.current_tree.encode_bipartitions()
-        self.TBE_support.pop(prune_bipar_int)
+        self.transfer_support.pop(prune_bipar_int)
         self.fp = self.fp - fp_reduction
-        #print("fp diff:", np.sum([1-support for key, support in self.TBE_support.items()]) * self.n_trees - self.fp)
+        #print("fp diff:", np.sum([1-support for key, support in self.transfer_support.items()]) * self.n_trees - self.fp)
 
         # run matching for rematch_bipartitions.
         if self.normalized:
-            supports, matched_list, second_supports, second_matched_list = _TBE_and_match2(rematch_bipartitions, self.current_tree)
+            supports, matched_list, second_supports, second_matched_list = _transfer_support_and_match2(rematch_bipartitions, self.current_tree)
         else:
-            supports, matched_list, second_supports, second_matched_list = _unnormalized_TBE_and_match2(rematch_bipartitions, self.current_tree)
+            supports, matched_list, second_supports, second_matched_list = _unnormalized_transfer_support_and_match2(rematch_bipartitions, self.current_tree)
     
         # renew match dict, second_match_dict, and reverse_match_dict and second_match_dict
         self.match_dict.pop(prune_bipar_int)
@@ -1149,9 +927,9 @@ class std_risk_prune:
             self.second_supp_dict[bipar_int] = second_supports[i]
 
         if self.normalized:
-            supports, matched_list, second_supports, second_matched_list = _TBE_and_match2(second_rematch_bipartitions, self.current_tree)
+            supports, matched_list, second_supports, second_matched_list = _transfer_support_and_match2(second_rematch_bipartitions, self.current_tree)
         else:
-            supports, matched_list, second_supports, second_matched_list = _unnormalized_TBE_and_match2(second_rematch_bipartitions, self.current_tree)
+            supports, matched_list, second_supports, second_matched_list = _unnormalized_transfer_support_and_match2(second_rematch_bipartitions, self.current_tree)
         self.second_match_dict.pop(prune_bipar_int)
         for i in range(len(second_matched_bipars)):
             bipar_int = second_matched_bipars[i]
@@ -1173,7 +951,7 @@ class std_risk_prune:
 
     def greedy_pruning(self):
         while True:
-            bipartition_ints = list(self.TBE_support.keys())
+            bipartition_ints = list(self.transfer_support.keys())
             print("current risk:", self.fp + self.fn)
             # find risk reduction
             risk_reductions = [self.find_risk_reduction(bipar_int) for bipar_int in bipartition_ints]
@@ -1348,17 +1126,17 @@ class TreeList_with_support(dendropy.TreeList):
                     edge_dict[key] = 1
         return edge_dict
     
-    def _make_all_TBE_dict(self):
+    def _make_all_transfer_support_dict(self):
         keys = list(self.edge_dict.keys())
         bipartitions = [dendropy.Bipartition(leafset_bitmask = item, tree_leafset_bitmask = 2**self.n_taxa - 1, compile_bipartition=True) for item in keys]
-        tbe_list = self.TBE(bipartitions)
+        transfer_support_list = self.transfer_support(bipartitions)
         bipartition_ints = [bipar.split_as_int() for bipar in bipartitions]
-        self.all_TBE_dict =  dict(zip(bipartition_ints, tbe_list))
+        self.all_transfer_support_dict =  dict(zip(bipartition_ints, transfer_support_list))
         return None
 
     def __init__(self, *args, **kwargs):
         edge_dict = kwargs.pop("edge_dict", None)
-        self.all_TBE_dict =  kwargs.pop("all_TBE_dict", None)
+        self.all_transfer_support_dict =  kwargs.pop("all_transfer_support_dict", None)
         if len(args) ==  1 and isinstance(args[0], dendropy.TreeList):
             # just reference it
             self.__dict__.update(args[0].__dict__)
@@ -1398,7 +1176,7 @@ class TreeList_with_support(dendropy.TreeList):
 
 
 
-    def bootstrap_support(self, bipartition):
+    def branch_support(self, bipartition):
         """Compute bootstrap support of a bipartition against self.
 
         Parameters
@@ -1419,33 +1197,33 @@ class TreeList_with_support(dendropy.TreeList):
             return self.edge_dict[key]/self.n_trees
         return 0
     
-    def compute_all_TBE(self):
-        """Compute all TBE of all bipartitions present in the treelist against self and save it in self.all_TBE_dict.
+    def compute_all_transfer_support(self):
+        """Compute all transfer_support of all bipartitions present in the treelist against self and save it in self.all_transfer_support_dict.
 
         Returns
         -------
         dict
-            Dictionary that has integers representing bipartitions as keys and TBE support as values. 
+            Dictionary that has integers representing bipartitions as keys and transfer_support support as values. 
         """
-        self._make_all_TBE_dict()
-        return self.all_TBE_dict
+        self._make_all_transfer_support_dict()
+        return self.all_transfer_support_dict
     
-    def TBE(self, bipartitions):
-        """Compute TBE support of bipartitions against self.
+    def transfer_support(self, bipartitions):
+        """Compute transfer_support support of bipartitions against self.
 
         Parameters
         ----------
         bipartitions : Iterable of `dendropy.datamodel.treemodel.Bipartition`
-        Bipartitions to evaluate TBE support.
+        Bipartitions to evaluate transfer_support support.
 
         Returns
         -------
         numpy.ndarray
-            Array of TBE support
+            Array of transfer_support support
         """
-        return TBE(bipartitions, self)
+        return transfer_support(bipartitions, self)
     
-    def majority_consensus(self):
+    def majority_rule_consensus(self):
         """Computes majority rule consensus.
 
         Returns
@@ -1460,12 +1238,12 @@ class TreeList_with_support(dendropy.TreeList):
                 bipartitions.append(dendropy.Bipartition(bitmask = k, leafset_bitmask = k, tree_leafset_bitmask = tree_leafset_bitmask, is_rooted=False))
                 bipar_ints.append(k); bipar_bs.append(v/self.n_trees)
         majority_tree = dendropy.Tree.from_bipartition_encoding(bipartitions, self.taxon_namespace)
-        bootstrap_support = dict(zip(bipar_ints, bipar_bs))
-        # majority_tree.bootstrap_support = bootstrap_support
-        return Tree_with_support(majority_tree, bootstrap_support = bootstrap_support, taxon_namespace = self.taxon_namespace)
+        branch_support = dict(zip(bipar_ints, bipar_bs))
+        # majority_tree.branch_support = branch_support
+        return Tree_with_support(majority_tree, branch_support = branch_support, taxon_namespace = self.taxon_namespace)
 
-    def MCC_tree(self):
-        """Computes majority rule consensus.
+    def MCC(self):
+        """Computes Maximum Clade Credibility (MCC) tree.
 
         Returns
         -------
@@ -1527,91 +1305,91 @@ class TreeList_with_support(dendropy.TreeList):
         
 
     
-    def greedy_TBE_consensus(self, normalization : bool = False):
-        """Greedily (in terms of TBE or its unnormalized version) add edges to construct consensus tree.
+    # def greedy_transfer_support_consensus(self, normalization : bool = False):
+    #     """Greedily (in terms of transfer_support or its unnormalized version) add edges to construct consensus tree.
         
-        The candidate bipartitions are the set of all bipartitions included in self.
+    #     The candidate bipartitions are the set of all bipartitions included in self.
 
-        Parameters
-        ----------
-        normalization : bool, optional
-            Whether to use the usual TBE or unnormalized TBE.
+    #     Parameters
+    #     ----------
+    #     normalization : bool, optional
+    #         Whether to use the usual transfer_support or unnormalized transfer_support.
 
-        Returns
-        -------
-        Tree_with_support
-            Consensus tree.
-        """
-        all_edges = list(self.edge_dict.keys())
-        all_bipartitions = [dendropy.Bipartition(leafset_bitmask = item, tree_leafset_bitmask = 2**self.n_taxa - 1) for item in all_edges]
-        all_Bits = [Bits(uint = item.split_as_int(), length=self.n_taxa) for item in all_bipartitions]
-        # compile all bipartitions
-        for bipartition in all_bipartitions:
-            bipartition.compile_leafset_bitmask()
+    #     Returns
+    #     -------
+    #     Tree_with_support
+    #         Consensus tree.
+    #     """
+    #     all_edges = list(self.edge_dict.keys())
+    #     all_bipartitions = [dendropy.Bipartition(leafset_bitmask = item, tree_leafset_bitmask = 2**self.n_taxa - 1) for item in all_edges]
+    #     all_Bits = [Bits(uint = item.split_as_int(), length=self.n_taxa) for item in all_bipartitions]
+    #     # compile all bipartitions
+    #     for bipartition in all_bipartitions:
+    #         bipartition.compile_leafset_bitmask()
         
-        encoding_bipartitions = []; encoding_TS = []
-        if normalization:
-            if self.all_TBE_dict is None:
-                tbe_list=  self.TBE(all_bipartitions)
-            else:
-                tbe_list = list(self.all_TBE_dict.values())
-            sort_index = np.argsort(tbe_list)[::-1] # high to low
-            all_Bits_sorted = [all_Bits[item] for item in sort_index]
-            all_bipartitions_sorted =  [all_bipartitions[item] for item in sort_index]
-            tbe_list_sorted = [tbe_list[item] for item in sort_index]
-            while len(all_Bits_sorted) > 0:
-                bipar_bits = all_Bits_sorted.pop(0)
-                TS = tbe_list_sorted.pop(0)
-                bipartition = all_bipartitions_sorted.pop(0)
-                encoding_TS.append(TS)
-                encoding_bipartitions.append(bipartition)
-                # delete incompatible edges
-                if TS == 1:
-                    count_1 = bipar_bits.count(1)
-                    if (count_1 <= 1) or (count_1 >= self.n_taxa - 1):
-                        continue # compatible with all edges
+    #     encoding_bipartitions = []; encoding_TS = []
+    #     if normalization:
+    #         if self.all_transfer_support_dict is None:
+    #             transfer_support_list=  self.transfer_support(all_bipartitions)
+    #         else:
+    #             transfer_support_list = list(self.all_transfer_support_dict.values())
+    #         sort_index = np.argsort(transfer_support_list)[::-1] # high to low
+    #         all_Bits_sorted = [all_Bits[item] for item in sort_index]
+    #         all_bipartitions_sorted =  [all_bipartitions[item] for item in sort_index]
+    #         transfer_support_list_sorted = [transfer_support_list[item] for item in sort_index]
+    #         while len(all_Bits_sorted) > 0:
+    #             bipar_bits = all_Bits_sorted.pop(0)
+    #             TS = transfer_support_list_sorted.pop(0)
+    #             bipartition = all_bipartitions_sorted.pop(0)
+    #             encoding_TS.append(TS)
+    #             encoding_bipartitions.append(bipartition)
+    #             # delete incompatible edges
+    #             if TS == 1:
+    #                 count_1 = bipar_bits.count(1)
+    #                 if (count_1 <= 1) or (count_1 >= self.n_taxa - 1):
+    #                     continue # compatible with all edges
                 
-                remain_index = [i for i in range(len(all_Bits_sorted)) if _compatible(all_Bits_sorted[i], bipar_bits) ]
-                all_Bits_sorted = [all_Bits_sorted[item] for item in remain_index]
-                all_bipartitions_sorted = [all_bipartitions_sorted[item] for item in remain_index]
-                tbe_list_sorted = [tbe_list_sorted[item] for item in remain_index]
-        else:
-            if self.all_TBE_dict is None:
-                tbe_list= unnormalized_TBE(all_bipartitions, self)
-            else:
-                normalized_tbe_list = np.array(list(self.all_TBE_dict.values()))
-                tmp = 1 - normalized_tbe_list
-                refinfos = _create_refinfo(all_bipartitions, self.n_taxa)
-                normalizing_constants = np.array([refinfos[bipar_int][1] - 1 for bipar_int in all_edges])
-                tbe_list = tmp * normalizing_constants
+    #             remain_index = [i for i in range(len(all_Bits_sorted)) if _compatible(all_Bits_sorted[i], bipar_bits) ]
+    #             all_Bits_sorted = [all_Bits_sorted[item] for item in remain_index]
+    #             all_bipartitions_sorted = [all_bipartitions_sorted[item] for item in remain_index]
+    #             transfer_support_list_sorted = [transfer_support_list_sorted[item] for item in remain_index]
+    #     else:
+    #         if self.all_transfer_support_dict is None:
+    #             transfer_support_list= unnormalized_transfer_support(all_bipartitions, self)
+    #         else:
+    #             normalized_transfer_support_list = np.array(list(self.all_transfer_support_dict.values()))
+    #             tmp = 1 - normalized_transfer_support_list
+    #             refinfos = _create_refinfo(all_bipartitions, self.n_taxa)
+    #             normalizing_constants = np.array([refinfos[bipar_int][1] - 1 for bipar_int in all_edges])
+    #             transfer_support_list = tmp * normalizing_constants
 
-            sort_index = np.argsort(tbe_list) # low to high
-            all_Bits_sorted = [all_Bits[item] for item in sort_index]
-            all_bipartitions_sorted =  [all_bipartitions[item] for item in sort_index]
-            tbe_list_sorted = list(tbe_list[sort_index])
-            while len(all_Bits_sorted) > 0:
-                bipar_bits = all_Bits_sorted.pop(0)
-                TS = tbe_list_sorted.pop(0)
-                bipartition = all_bipartitions_sorted.pop(0)
-                encoding_TS.append(TS)
-                encoding_bipartitions.append(bipartition)
+    #         sort_index = np.argsort(transfer_support_list) # low to high
+    #         all_Bits_sorted = [all_Bits[item] for item in sort_index]
+    #         all_bipartitions_sorted =  [all_bipartitions[item] for item in sort_index]
+    #         transfer_support_list_sorted = list(transfer_support_list[sort_index])
+    #         while len(all_Bits_sorted) > 0:
+    #             bipar_bits = all_Bits_sorted.pop(0)
+    #             TS = transfer_support_list_sorted.pop(0)
+    #             bipartition = all_bipartitions_sorted.pop(0)
+    #             encoding_TS.append(TS)
+    #             encoding_bipartitions.append(bipartition)
 
-                # delete incompatible edges
-                if TS == 0:
-                    count_1 = bipar_bits.count(1)
-                    if (count_1 <= 1) or (count_1 >= self.n_taxa - 1):
-                        continue # compatible with all edges
-                remain_index = [i for i in range(len(all_Bits_sorted)) if _compatible(all_Bits_sorted[i], bipar_bits) ]
-                all_Bits_sorted = [all_Bits_sorted[item] for item in remain_index]
-                all_bipartitions_sorted = [all_bipartitions_sorted[item] for item in remain_index]
-                tbe_list_sorted = [tbe_list_sorted[item] for item in remain_index]
+    #             # delete incompatible edges
+    #             if TS == 0:
+    #                 count_1 = bipar_bits.count(1)
+    #                 if (count_1 <= 1) or (count_1 >= self.n_taxa - 1):
+    #                     continue # compatible with all edges
+    #             remain_index = [i for i in range(len(all_Bits_sorted)) if _compatible(all_Bits_sorted[i], bipar_bits) ]
+    #             all_Bits_sorted = [all_Bits_sorted[item] for item in remain_index]
+    #             all_bipartitions_sorted = [all_bipartitions_sorted[item] for item in remain_index]
+    #             transfer_support_list_sorted = [transfer_support_list_sorted[item] for item in remain_index]
         
-        encoding_bipartition_ints = [bipar.split_as_int() for bipar in encoding_bipartitions]
-        greedy_tree = dendropy.Tree.from_bipartition_encoding(encoding_bipartitions, self.taxon_namespace)
-        if normalization:
-            return Tree_with_support(greedy_tree, TBE_support = dict(zip( encoding_bipartition_ints, encoding_TS )))
-        else:
-            return Tree_with_support(greedy_tree)
+    #     encoding_bipartition_ints = [bipar.split_as_int() for bipar in encoding_bipartitions]
+    #     greedy_tree = dendropy.Tree.from_bipartition_encoding(encoding_bipartitions, self.taxon_namespace)
+    #     if normalization:
+    #         return Tree_with_support(greedy_tree, transfer_support = dict(zip( encoding_bipartition_ints, encoding_TS )))
+    #     else:
+    #         return Tree_with_support(greedy_tree)
 
     def Rstar_consensus(self, root_index = None, root_name = None):
         """Compute R* consensus.
@@ -1684,7 +1462,7 @@ class TreeList_with_support(dendropy.TreeList):
     #     tree.encode_bipartitions()
 
     #     # now construct majority consensus
-    #     maj_tree = self.majority_consensus()
+    #     maj_tree = self.majority_rule_consensus()
     #     maj_tree.encode_bipartitions()
 
     #     # store legit bipartitions
@@ -1737,82 +1515,87 @@ class TreeList_with_support(dendropy.TreeList):
     #     qstar_tree = Tree_with_support.get(path = "treefile", schema="newick")
     #     return qstar_tree
 
+def transfer_support(bipartitions, treelist):
+    """Compute transfer_support of given set of bipartitions against input trees.
 
-def unnormalized_TBE_fp_fn(true_tree, tree2: Tree_with_support):
-    tree1_int_bipars = [node.bipartition for node in true_tree.postorder_internal_node_iter(exclude_seed_node=True)]
-    tree2_int_bipars = [node.bipartition for node in tree2.postorder_internal_node_iter(exclude_seed_node=True)]
-    fp = np.sum(unnormalized_TBE(tree2_int_bipars, [true_tree]))
-    fn = np.sum(unnormalized_TBE(tree1_int_bipars, [tree2]))
-    return fp, fn
-
-def STD1_fp_fn(true_tree, tree2:  Tree_with_support):
-    tree1_int_bipars = [node.bipartition for node in true_tree.postorder_internal_node_iter(exclude_seed_node=True)]
-    tree2_int_bipars = [node.bipartition for node in tree2.postorder_internal_node_iter(exclude_seed_node=True)]
-    fp = np.sum((1-TBE(tree2_int_bipars, [true_tree])))
-    fn = np.sum((1-TBE(tree1_int_bipars, [tree2])))
-    return fp, fn
-
-def unnormalized_STD_fp_fn(estimate, inputs):
-    """Computes false positive and false negative of unnormalized STD.
-        
     Parameters
     ----------
-    estimate : Tree_with_support
-        Estimates.
-    inputs : Tree_with_support or TreeList_with_support
-        Input trees to evaluate the estimate. 
-        
+    bipartitions : Iterable of `dendropy.datamodel.treemodel.Bipartition`
+        Bipartitions to evaluate transfer support.
+    treelist : TreeList_with_support or Iterable of either Tree_with_support or 
+        Input trees to evaluate transfer support against.
+    
+    Notes
+    -----
+    Trees that produce input bipartitions and treelist need to have the same taxon_namespace.
+    
+    Otherwise, the produced transfer support will not be a valid one.
+    
+    Please check this manually, as we don't check it inside the function.
 
     Returns
     -------
-    (float, float)
-        False positives and False negatives.
+    numpy.ndarray
+        Array of transfer support. 
     """
     
-    if isinstance(inputs, Tree_with_support):
-        return unnormalized_TBE_fp_fn(inputs, estimate)
-    elif isinstance(inputs, TreeList_with_support):
-        fp = 0
-        fn = 0
-        for i in range(len(inputs)):
-            fp_tmp, fn_tmp = unnormalized_TBE_fp_fn(inputs[i], estimate)
-            fp += fp_tmp
-            fn += fn_tmp
-        fn /= len(inputs)
-        fp /= len(inputs)
-        return fp, fn
-    else:
-        print("input trees have to be either Tree_with_support or TreeList_with_support.")
-        sys.exit(1)
-        
-def STD_fp_fn(estimate, inputs):
-    """Computes false positive and false negative of STD.
-        
+    n_taxa = len(treelist[0].taxon_namespace)
+    refinfo = _create_refinfo(bipartitions, n_taxa)
+    n_bipartitions = len(bipartitions)
+    totalSupport = np.zeros(n_bipartitions)
+
+    for tree in treelist:
+        if tree.bipartition_encoding is None:
+            tree.encode_bipartitions()
+        tree_bipartition_ints = [bipartition.split_as_int() for bipartition in tree.bipartition_encoding]
+        for i, bipartition in enumerate(bipartitions):
+            bipar_int = bipartition.split_as_int()
+            if bipar_int in tree_bipartition_ints:
+                support = 1
+            elif refinfo[bipar_int][1] == 2:
+                support  = 0
+            else:
+                support = 1 - _minDist(refinfo[bipar_int], tree) / (refinfo[bipar_int][1] - 1)
+            totalSupport[i] += support
+    
+    totalSupport = totalSupport / len(treelist)
+    return totalSupport
+
+def unnormalized_transfer_support(bipartitions, treelist):
+    """Unnormalized version of transfer  expectation.
+    
+    Due to the lack of normalization, contrary to the usual transfer_support, the lower value (close to zero) indicates well supported edges.
+
     Parameters
     ----------
-    estimate : Tree_with_support
-        Estimates.
-    inputs : Tree_with_support or TreeList_with_support
-        Input trees to evaluate the estimate.      
+    bipartitions : Iterable of `dendropy.datamodel.treemodel.Bipartition`
+        Bipartitions to evaluate unnormalized transfer_support.
+    treelist : TreeList_with_support or Iterable of either Tree_with_support or 
+        Input trees to evaluate unnormalized transfer_support against.
 
     Returns
     -------
-    (float, float)
-        False positives and False negatives.
+    numpy.ndarray
+        Array of unnormalized transfer_support. 
     """
+    n_taxa = len(treelist[0].taxon_namespace)
+    refinfo = _create_refinfo(bipartitions, n_taxa)
+    n_bipartitions = len(bipartitions)
+    totalDistance = np.zeros(n_bipartitions)
+
+    for tree in treelist:
+        if tree.bipartition_encoding is None:
+            tree.encode_bipartitions()
+        tree_bipartition_ints = [bipartition.split_as_int() for bipartition in tree.bipartition_encoding]
+        for i, bipartition in enumerate(bipartitions):
+            bipar_int = bipartition.split_as_int()
+            if bipar_int in tree_bipartition_ints:
+                distance = 0
+            elif refinfo[bipar_int][1] == 2:
+                distance  = 1
+            else:
+                distance = _minDist(refinfo[bipar_int], tree)
+            totalDistance[i] += distance
     
-    if isinstance(inputs, Tree_with_support):
-        return STD1_fp_fn(inputs, estimate)
-    elif isinstance(inputs, TreeList_with_support):
-        fp = 0
-        fn = 0
-        for i in range(len(inputs)):
-            fp_tmp, fn_tmp = STD1_fp_fn(inputs[i], estimate)
-            fp += fp_tmp
-            fn += fn_tmp
-        fn /= len(inputs)
-        fp /= len(inputs)
-        return fp, fn
-    else:
-        print("input trees have to be either Tree_with_support or TreeList_with_support.")
-        sys.exit(1)
+    totalDistance = totalDistance/ len(treelist)
+    return totalDistance

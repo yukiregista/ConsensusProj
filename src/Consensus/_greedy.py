@@ -1,4 +1,4 @@
-from ._consensus import TreeList_with_support, Tree_with_support, _compatible, quartet_loss2
+from ._consensus import TreeList_with_support, Tree_with_support, _compatible, SQD_loss
 from bitstring import Bits
 import numpy as np
 from itertools import combinations
@@ -505,7 +505,7 @@ class SQDGreedyConsensus(GreedyConsensusBase):
     def SQD_cost(self, bipar_keys, exec_dir=None):    
         bipartition_list = [self.BipartitionDict[key] for key in bipar_keys]
         tree = dendropy.Tree.from_bipartition_encoding(bipartition_list, taxon_namespace = self.taxon_namespace)
-        return quartet_loss2(tree, self.input_trees_string, len(self.input_trees), False, exec_dir)
+        return SQD_loss(tree, self.input_trees_string, len(self.input_trees), False, exec_dir)
      
     def add(self, branch_index, *args, **kwargs):
         self.current_tree_included[branch_index] = 1
@@ -566,8 +566,7 @@ class SQDGreedyConsensus(GreedyConsensusBase):
                 sorted_index = np.argsort(self.BipartitionCounts)[::-1]
             if method == "first":
                 self._first_greedy(sorted_index, exec_dir = exec_dir)
-            
-   
+               
 
 class SUTDGreedyConsensus(GreedyConsensusBase):
      
