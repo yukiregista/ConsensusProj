@@ -17,7 +17,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-dependencies = ["numpy", "pandas", "scipy", "matplotlib", "dendropy", "bitstring", "biopython", "distance"]
+dependencies = ["numpy", "pandas", "scipy", "matplotlib", "dendropy", "bitstring", "biopython", "distance", "ete3"]
 
 [project.optional-dependencies]
 dev = [
