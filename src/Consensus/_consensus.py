@@ -19,6 +19,7 @@ import random, string
 import time
 
 
+
 def _get_newick(node, parent_dist, leaf_names, newick='') -> str:
     """Convert sciply.cluster.hierarchy.to_tree()-output to Newick format.
     
@@ -52,187 +53,6 @@ def _get_newick(node, parent_dist, leaf_names, newick='') -> str:
         newick = "(%s" % (newick)
         return newick
 
-def transfer_support(bipartitions, treelist):
-    """Compute transfer_support of given set of bipartitions against input trees.
-
-    Parameters
-    ----------
-    bipartitions : Iterable of `dendropy.datamodel.treemodel.Bipartition`
-        Bipartitions to evaluate transfer support.
-    treelist : TreeList_with_support or Iterable of either Tree_with_support or 
-        Input trees to evaluate transfer support against.
-    
-    Notes
-    -----
-    Trees that produce input bipartitions and treelist need to have the same taxon_namespace.
-    
-    Otherwise, the produced transfer support will not be a valid one.
-    
-    Please check this manually, as we don't check it inside the function.
-
-    Returns
-    -------
-    numpy.ndarray
-        Array of transfer support. 
-    """
-    
-    n_taxa = len(treelist[0].taxon_namespace)
-    refinfo = _create_refinfo(bipartitions, n_taxa)
-    n_bipartitions = len(bipartitions)
-    totalSupport = np.zeros(n_bipartitions)
-
-    for tree in treelist:
-        if tree.bipartition_encoding is None:
-            tree.encode_bipartitions()
-        tree_bipartition_ints = [bipartition.split_as_int() for bipartition in tree.bipartition_encoding]
-        for i, bipartition in enumerate(bipartitions):
-            bipar_int = bipartition.split_as_int()
-            if bipar_int in tree_bipartition_ints:
-                support = 1
-            elif refinfo[bipar_int][1] == 2:
-                support  = 0
-            else:
-                support = 1 - _minDist(refinfo[bipar_int], tree) / (refinfo[bipar_int][1] - 1)
-            totalSupport[i] += support
-    
-    totalSupport = totalSupport / len(treelist)
-    return totalSupport
-
-def unnormalized_transfer_support(bipartitions, treelist):
-    """Unnormalized version of transfer  expectation.
-    
-    Due to the lack of normalization, contrary to the usual transfer_support, the lower value (close to zero) indicates well supported edges.
-
-    Parameters
-    ----------
-    bipartitions : Iterable of `dendropy.datamodel.treemodel.Bipartition`
-        Bipartitions to evaluate unnormalized transfer_support.
-    treelist : TreeList_with_support or Iterable of either Tree_with_support or 
-        Input trees to evaluate unnormalized transfer_support against.
-
-    Returns
-    -------
-    numpy.ndarray
-        Array of unnormalized transfer_support. 
-    """
-    n_taxa = len(treelist[0].taxon_namespace)
-    refinfo = _create_refinfo(bipartitions, n_taxa)
-    n_bipartitions = len(bipartitions)
-    totalDistance = np.zeros(n_bipartitions)
-
-    for tree in treelist:
-        if tree.bipartition_encoding is None:
-            tree.encode_bipartitions()
-        tree_bipartition_ints = [bipartition.split_as_int() for bipartition in tree.bipartition_encoding]
-        for i, bipartition in enumerate(bipartitions):
-            bipar_int = bipartition.split_as_int()
-            if bipar_int in tree_bipartition_ints:
-                distance = 0
-            elif refinfo[bipar_int][1] == 2:
-                distance  = 1
-            else:
-                distance = _minDist(refinfo[bipar_int], tree)
-            totalDistance[i] += distance
-    
-    totalDistance = totalDistance/ len(treelist)
-    return totalDistance
-
-
-def _create_refinfo(bipartitions, n_taxa):
-    """Helper function for transfer_support
-
-    Parameters
-    ----------
-    bipartitions : Iterable of `dendropy.datamodel.treemodel.Bipartition`
-        _description_
-    n_taxa : int
-        _description_
-
-    Returns
-    -------
-    dict
-        bipar_int as key an tuple of (bitstr, p) as value.
-    """
-    
-    # bipartitions: iterable of dendropy.Bipartition
-    refinfo = dict()
-    for bipartition in bipartitions:
-        edge_bitstr = Bits(uint = bipartition.split_as_int(), length=n_taxa)
-        counts = (edge_bitstr.count(0), edge_bitstr.count(1))
-        if counts[0] < counts[1]:
-            # zero lready assigned to light side
-            bitstr = edge_bitstr
-            p = counts[0]
-        else:
-            # reverse bitstring
-            bitstr = (~edge_bitstr)
-            p = counts[1]
-        refinfo[bipartition.split_as_int()] = (bitstr, p)
-    # O( len(bipartitions) *  n_taxa )
-    return refinfo
-
-def _minDist(refinfo_b, tree):
-    """Helper minDist function for computing transfer_support.
-
-    Parameters
-    ----------
-    refinfo_b : dict
-        refinfo of bipartition b created by _create_refinfo function.
-    tree : Tree_with_support or dendropy.datamodel.treemodel.Tree
-        Tree to compute support of the bipartition
-        
-    Notes
-    -----
-    This function expects input bipartition (``refinfo_b``) to be NOT included in ``tree``.
-
-    Returns
-    -------
-    int
-        Hamming distance.
-    """
-    # bipartition: Bipartition object
-    # tree: Tree_with_support or Tree object
-    p = refinfo_b[1]
-    b_bitstr = refinfo_b[0]
-
-    d = p - 1
-    #edge_bitstr = Bits(uint = bipartition.split_as_int(), length=self.n_taxa)
-    #p = min(edge_bitstr.count(1), edge_bitstr.count(0))
-    #m = len(tree.edge)
-
-    # WE ASSUME THAT bipartition and tree has the exact same TAXON_NAMESPACE 
-    taxon_namespace = tree.taxon_namespace
-    taxon_labels = [taxon.label for taxon in taxon_namespace]
-    n_taxa = len(taxon_labels)
-    taxon_labels_to_bitstr_digit = dict(zip(taxon_labels, [i for i in range(n_taxa)]))
-    node_biparint_to_postorder_index = dict()
-
-    if tree.bipartition_encoding is None:
-        tree.encode_bipartitions()
-    
-    m = len(tree.bipartition_encoding)
-    CountOnesSubtree = np.zeros(m)
-    CountZerosSubtree = np.zeros(m)
-
-    for i, node in enumerate(tree.postorder_node_iter()):
-        node_biparint_to_postorder_index[node.bipartition.split_as_int()] = i
-        if node.is_leaf():
-            digit = taxon_labels_to_bitstr_digit[node.taxon.label]
-            CountOnesSubtree[i] =  int(b_bitstr[- digit - 1])
-            CountZerosSubtree[i] = 1 - CountOnesSubtree[i]
-        else:
-            for child in node.child_node_iter():
-                CountOnesSubtree[i] += CountOnesSubtree[ node_biparint_to_postorder_index[child.bipartition.split_as_int()] ]
-                CountZerosSubtree[i] += CountZerosSubtree[ node_biparint_to_postorder_index[child.bipartition.split_as_int()] ]
-            actDist = p - CountZerosSubtree[i] + CountOnesSubtree[i]
-            if actDist > n_taxa / 2:
-                actDist = n_taxa - actDist
-            if actDist < d:
-                d = actDist
-                if d == 1:
-                    return d
-    
-    return d
 
 def _quartet_resolution(tree, parent_dir = None, normalized=True):
     
@@ -287,7 +107,7 @@ def _quartet_resolution_str(tree_string, parent_dir = None, normalized=True):
         return (num_all_quartets - num_unresolved_quartets_agreed)
 
 
-def tqdist_fp_fn(estimate, true, parent_dir = None):
+def _tqdist_fp_fn(estimate, true, parent_dir = None):
     executable_name = 'quartet_dist'
     executable_path = shutil.which(executable_name)
     if executable_path is None:
@@ -333,39 +153,8 @@ def tqdist_fp_fn(estimate, true, parent_dir = None):
     fn = unresolved_resolved_fn + resolved_resolved_disagree
     fp = resolved_unresolved_fp + resolved_resolved_disagree
     return fp, fn
-    
 
-def quartet_dist_fp_fn(estimate, inputs, parent_dir=None):
-    """Compute false positives and false negatives of symmetric quartet distance.
-    
-
-    Parameters
-    ----------
-    estimate : Tree_with_support
-        Estimates.
-    inputs : Tree_with_support or TreeList_with_support
-        Input trees to evaluate the estimate. 
-    parent_dir : str, optional
-        Path to place intermediate files, by default None (place files in the folder of execution).
-        
-    Returns
-    -------
-    (float, float) or (numpy.ndarray, numpy.ndarray)
-        False positives and False negatives respectively.
-    """
-    if isinstance(inputs, Tree_with_support):
-        fp, fn = tqdist_fp_fn(estimate, inputs, parent_dir=parent_dir)
-        return fp, fn
-    elif isinstance(inputs, TreeList_with_support):
-        inputs_string = inputs.as_string("newick", suppress_rooting=True)
-        fp, fn = tqdist_fp_fn2(estimate, inputs_string, len(inputs), parent_dir = parent_dir)
-        return fp, fn
-    else:
-        print("Please provide an instance of Tree_with_support or TreeList_with_support as inputs.")
-        sys.exit(1)
-    
-
-def tqdist_fp_fn2(estimate, input_trees_string, n_trees, parent_dir = None):
+def _tqdist_fp_fn_trees_str(estimate, input_trees_string, n_trees, parent_dir = None):
     executable_name = 'pairs_quartet_dist'
     executable_path = shutil.which(executable_name)
     if executable_path is None:
@@ -422,127 +211,17 @@ def tqdist_fp_fn2(estimate, input_trees_string, n_trees, parent_dir = None):
     fn = unresolved_resolved_fn + resolved_resolved_disagree
     fp = resolved_unresolved_fp + resolved_resolved_disagree
     return fp, fn
+     
 
-# def tqdist_fp_fn2(consensus_tree, input_trees_string, n_trees, parent_dir = None):
-#     # consensus_tree: one tree: can be non-binary
-#     # input_trees_string: Newick String of trees: ASSUMED TO BE BINARY
-#     # n_trees: number of input treess
-    
-#     n = n_trees # number of input trees
-    
-
-#     executable_name = 'pairs_quartet_dist'
-#     executable_path = shutil.which(executable_name)
-
-#     if executable_path is None:
-#         sys.exit(f"Error: '{executable_name}' not found. You need to install tqDist package on your PATH.")
-#     else:
-#         #print(f"Using executable '{executable_name}' found at {executable_path}...")
-#         pass
-#         # Proceed with execution
-
-#     if parent_dir is None:
-#         conname = "__" + _randomname(10) + ".nwk"
-#         consname = "__" + _randomname(10) + ".nwk"
-#         inputname = "__" + _randomname(10) + ".nwk"
-#     else:
-#         conname = os.path.join(parent_dir,  "__" + _randomname(10) + ".nwk")
-#         consname = os.path.join(parent_dir, "__" + _randomname(10) + ".nwk")
-#         inputname = os.path.join(parent_dir , "__" + _randomname(10) + ".nwk")
-
-#     try:
-#         consensus_tree.write(path=conname, schema="newick", suppress_rooting = True)
-#         # write n * consensus trees 
-#         consensus_nwk_str = consensus_tree.as_string(schema="newick", suppress_rooting = True)
-#         with open(consname, "w") as f:
-#             f.write(consensus_nwk_str*n)
-        
-#         #write input trees
-#         with open(inputname, "w") as f:
-#             f.write(input_trees_string)
-#         #input_trees.write(path = "__tmp__input.nwk", schema="newick", suppress_rooting=True)
-        
-#         # run pairs_quartet_dist
-#         p= subprocess.run(["pairs_quartet_dist", "-v", consname, inputname],capture_output=True, text=True)
-#         if p.stderr != '':
-#             print("error executing tqdist:", p.stderr)
-#             sys.exit(1)
-#         quartet_dist_list = [float(item) for item in p.stdout.split()][2::8]
-#         quartet_dists = np.array(quartet_dist_list)
-        
-        
-#         p2 = subprocess.run(["quartet_dist", "-v", conname, conname],capture_output=True, text=True)
-#         if p2.stderr != '':
-#             print("error executing tqdist:", p2.stderr)
-#             sys.exit(1)
-#         consensus_num_unresolved = [float(item) for item in p2.stdout.split()][6]
-        
-        
-        
-        
-#     p= subprocess.run(["quartet_dist", "-v", estimatename, truename],capture_output=True, text=True)
-#     keys = ["number_of_leaves", "number_of_all_quartets", "quartet_dist", "normalized_quartet_dist", "number_of_resolved_quartets_agreed", 
-#             "normalized_number_of_resolved_quartets_agreed", "number_of_unresolved_quartets_agreed", "normalized_number_of_unresolved_quaretets_agreed"]
-#     items = [float(item) for item in p.stdout.split()]
-#     tqdist_dict = dict(zip(keys, items))
-    
-#     for item in [estimatename,truename]:
-#         if os.path.exists(item):
-#             os.remove(item)
-
-    
-#     # check resolution
-#     estimate_num_resolved = _quartet_resolution(estimate, parent_dir=parent_dir, normalized=False)
-#     estimate_num_unresolved = tqdist_dict["number_of_all_quartets"] - estimate_num_resolved
-#     true_num_resolved = _quartet_resolution(true, parent_dir=parent_dir, normalized=False)
-#     true_num_unresolved = tqdist_dict["number_of_all_quartets"] - true_num_resolved
-    
-#     # compute number of each component
-#     unresolved_resolved_fn = estimate_num_unresolved -  tqdist_dict["number_of_unresolved_quartets_agreed"]
-#     resolved_unresolved_fp = true_num_unresolved -  tqdist_dict["number_of_unresolved_quartets_agreed"]
-#     resolved_resolved_disagree = estimate_num_resolved - resolved_unresolved_fp - tqdist_dict['number_of_resolved_quartets_agreed']
-#     assert resolved_resolved_disagree == (true_num_resolved - unresolved_resolved_fn - tqdist_dict['number_of_resolved_quartets_agreed'])
-    
-#     # compute fn and fp
-#     fn = unresolved_resolved_fn + resolved_resolved_disagree
-#     fp = resolved_unresolved_fp + resolved_resolved_disagree
-
-#         # get number of unresolved quartet trees
-#         p2 = subprocess.run(["pairs_quartet_dist", "-v", conname, conname],capture_output=True, text=True)
-#         if p2.stderr != '':
-#             print("error executing tqdist:", p2.stderr)
-#             sys.exit(1)
-#         num_unresolved = [float(item) for item in p2.stdout.split()][6]
-
-#         num_unmatched_resolved = quartet_dists - num_unresolved # length n
-        
-#         fn = quartet_dists # =  num_unresolved + num_unmatched_resolved
-#         fp = num_unmatched_resolved
-        
-#         for item in [conname, consname, inputname]:
-#             if os.path.exists(item):
-#                 os.remove(item)
-        
-#     except:
-#         # delete temporary file
-#         for item in [conname, consname, inputname]:
-#             if os.path.exists(item):
-#                 os.remove(item)
-#         print("Error computing quartet distance.")
-#         sys.exit(1)
-
-#     return fp, fn
-  
-
-def quartet_loss2(consensus_tree, input_trees_string, n_trees, normalized=True, parent_dir = None):
+def SQD_loss(consensus_tree, input_trees_string, n_trees, normalized=True, parent_dir = None):
     # use tqdist's `pairs_quartet_dist` function
-    fp, fn = tqdist_fp_fn2(consensus_tree, input_trees_string, n_trees, parent_dir) # fp, fn are ndarrays of length n=len(input_trees)
+    fp, fn = _tqdist_fp_fn_trees_str(consensus_tree, input_trees_string, n_trees, parent_dir) # fp, fn are ndarrays of length n=len(input_trees)
     loss = np.sum(fp+fn)
     if normalized:
         loss = loss/n_trees
     return loss
 
-def quartet_pruning(consensus_tree, input_trees, parent_dir=None):
+def SQD_pruning(consensus_tree, input_trees, parent_dir=None):
     bipartitions = np.array(consensus_tree.encode_bipartitions())
     bipartition_ints = np.array([bipartition.split_as_int() for bipartition in bipartitions])
     internal_edges = consensus_tree.internal_edges(exclude_seed_edge=True)
@@ -557,7 +236,7 @@ def quartet_pruning(consensus_tree, input_trees, parent_dir=None):
     taxon_namespace = consensus_tree.taxon_namespace
     trees_string = input_trees.as_string("newick", suppress_rooting=True)
     n_trees = len(input_trees)
-    current_loss = quartet_loss2(consensus_tree, trees_string, n_trees, False, parent_dir)
+    current_loss = SQD_loss(consensus_tree, trees_string, n_trees, False, parent_dir)
     next_updates = internal_bipartition_ints
     #best_mask = [True for i in range(len(bipartitions))]
     loss_reduction_dict = {bipar_int: 0 for bipar_int in internal_bipartition_ints}
@@ -570,7 +249,7 @@ def quartet_pruning(consensus_tree, input_trees, parent_dir=None):
             if bipar_int in internal_bipartition_ints:
                 mask = bipar_int!=bipartition_ints
                 pruned_tree = dendropy.Tree.from_bipartition_encoding(bipartitions[mask], taxon_namespace=taxon_namespace)
-                loss = quartet_loss2(pruned_tree, trees_string, n_trees, False, parent_dir)
+                loss = SQD_loss(pruned_tree, trees_string, n_trees, False, parent_dir)
                 # if current_loss - loss > 0:
                 #     print(f"loss_reduction of {bipar_int}: ", current_loss - loss)
                 loss_reduction_dict[bipar_int] = current_loss - loss # if risk reduction happends, this is a positive value
@@ -847,7 +526,7 @@ class Tree_with_support(dendropy.Tree):
             Consensus tree after applying greedy pruning
         """
         self_copy = self.clone(depth=1)
-        res, reduction_list = quartet_pruning(self_copy, treelist, parent_dir)
+        res, reduction_list = SQD_pruning(self_copy, treelist, parent_dir)
         return res
     
     def BS_prune(self, treelist, threshold=0.5):
@@ -891,6 +570,103 @@ class Tree_with_support(dendropy.Tree):
         branch_support = kwargs.pop("branch_support", None)
         transfer_support = kwargs.pop("transfer_support", None)
         return cls(tree, branch_support = branch_support, transfer_support = transfer_support)
+
+
+def _create_refinfo(bipartitions, n_taxa):
+    """Helper function for transfer_support
+
+    Parameters
+    ----------
+    bipartitions : Iterable of `dendropy.datamodel.treemodel.Bipartition`
+        _description_
+    n_taxa : int
+        _description_
+
+    Returns
+    -------
+    dict
+        bipar_int as key an tuple of (bitstr, p) as value.
+    """
+    
+    # bipartitions: iterable of dendropy.Bipartition
+    refinfo = dict()
+    for bipartition in bipartitions:
+        edge_bitstr = Bits(uint = bipartition.split_as_int(), length=n_taxa)
+        counts = (edge_bitstr.count(0), edge_bitstr.count(1))
+        if counts[0] < counts[1]:
+            # zero lready assigned to light side
+            bitstr = edge_bitstr
+            p = counts[0]
+        else:
+            # reverse bitstring
+            bitstr = (~edge_bitstr)
+            p = counts[1]
+        refinfo[bipartition.split_as_int()] = (bitstr, p)
+    # O( len(bipartitions) *  n_taxa )
+    return refinfo
+
+def _minDist(refinfo_b, tree):
+    """Helper minDist function for computing transfer_support.
+
+    Parameters
+    ----------
+    refinfo_b : dict
+        refinfo of bipartition b created by _create_refinfo function.
+    tree : Tree_with_support or dendropy.datamodel.treemodel.Tree
+        Tree to compute support of the bipartition
+        
+    Notes
+    -----
+    This function expects input bipartition (``refinfo_b``) to be NOT included in ``tree``.
+
+    Returns
+    -------
+    int
+        Hamming distance.
+    """
+    # bipartition: Bipartition object
+    # tree: Tree_with_support or Tree object
+    p = refinfo_b[1]
+    b_bitstr = refinfo_b[0]
+
+    d = p - 1
+    #edge_bitstr = Bits(uint = bipartition.split_as_int(), length=self.n_taxa)
+    #p = min(edge_bitstr.count(1), edge_bitstr.count(0))
+    #m = len(tree.edge)
+
+    # WE ASSUME THAT bipartition and tree has the exact same TAXON_NAMESPACE 
+    taxon_namespace = tree.taxon_namespace
+    taxon_labels = [taxon.label for taxon in taxon_namespace]
+    n_taxa = len(taxon_labels)
+    taxon_labels_to_bitstr_digit = dict(zip(taxon_labels, [i for i in range(n_taxa)]))
+    node_biparint_to_postorder_index = dict()
+
+    if tree.bipartition_encoding is None:
+        tree.encode_bipartitions()
+    
+    m = len(tree.bipartition_encoding)
+    CountOnesSubtree = np.zeros(m)
+    CountZerosSubtree = np.zeros(m)
+
+    for i, node in enumerate(tree.postorder_node_iter()):
+        node_biparint_to_postorder_index[node.bipartition.split_as_int()] = i
+        if node.is_leaf():
+            digit = taxon_labels_to_bitstr_digit[node.taxon.label]
+            CountOnesSubtree[i] =  int(b_bitstr[- digit - 1])
+            CountZerosSubtree[i] = 1 - CountOnesSubtree[i]
+        else:
+            for child in node.child_node_iter():
+                CountOnesSubtree[i] += CountOnesSubtree[ node_biparint_to_postorder_index[child.bipartition.split_as_int()] ]
+                CountZerosSubtree[i] += CountZerosSubtree[ node_biparint_to_postorder_index[child.bipartition.split_as_int()] ]
+            actDist = p - CountZerosSubtree[i] + CountOnesSubtree[i]
+            if actDist > n_taxa / 2:
+                actDist = n_taxa - actDist
+            if actDist < d:
+                d = actDist
+                if d == 1:
+                    return d
+    
+    return d
 
 
 
@@ -1739,82 +1515,87 @@ class TreeList_with_support(dendropy.TreeList):
     #     qstar_tree = Tree_with_support.get(path = "treefile", schema="newick")
     #     return qstar_tree
 
+def transfer_support(bipartitions, treelist):
+    """Compute transfer_support of given set of bipartitions against input trees.
 
-def unnormalized_transfer_support_fp_fn(true_tree, tree2: Tree_with_support):
-    tree1_int_bipars = [node.bipartition for node in true_tree.postorder_internal_node_iter(exclude_seed_node=True)]
-    tree2_int_bipars = [node.bipartition for node in tree2.postorder_internal_node_iter(exclude_seed_node=True)]
-    fp = np.sum(unnormalized_transfer_support(tree2_int_bipars, [true_tree]))
-    fn = np.sum(unnormalized_transfer_support(tree1_int_bipars, [tree2]))
-    return fp, fn
-
-def STD1_fp_fn(true_tree, tree2:  Tree_with_support):
-    tree1_int_bipars = [node.bipartition for node in true_tree.postorder_internal_node_iter(exclude_seed_node=True)]
-    tree2_int_bipars = [node.bipartition for node in tree2.postorder_internal_node_iter(exclude_seed_node=True)]
-    fp = np.sum((1-transfer_support(tree2_int_bipars, [true_tree])))
-    fn = np.sum((1-transfer_support(tree1_int_bipars, [tree2])))
-    return fp, fn
-
-def unnormalized_STD_fp_fn(estimate, inputs):
-    """Computes false positive and false negative of unnormalized STD.
-        
     Parameters
     ----------
-    estimate : Tree_with_support
-        Estimates.
-    inputs : Tree_with_support or TreeList_with_support
-        Input trees to evaluate the estimate. 
-        
+    bipartitions : Iterable of `dendropy.datamodel.treemodel.Bipartition`
+        Bipartitions to evaluate transfer support.
+    treelist : TreeList_with_support or Iterable of either Tree_with_support or 
+        Input trees to evaluate transfer support against.
+    
+    Notes
+    -----
+    Trees that produce input bipartitions and treelist need to have the same taxon_namespace.
+    
+    Otherwise, the produced transfer support will not be a valid one.
+    
+    Please check this manually, as we don't check it inside the function.
 
     Returns
     -------
-    (float, float)
-        False positives and False negatives.
+    numpy.ndarray
+        Array of transfer support. 
     """
     
-    if isinstance(inputs, Tree_with_support):
-        return unnormalized_transfer_support_fp_fn(inputs, estimate)
-    elif isinstance(inputs, TreeList_with_support):
-        fp = 0
-        fn = 0
-        for i in range(len(inputs)):
-            fp_tmp, fn_tmp = unnormalized_transfer_support_fp_fn(inputs[i], estimate)
-            fp += fp_tmp
-            fn += fn_tmp
-        fn /= len(inputs)
-        fp /= len(inputs)
-        return fp, fn
-    else:
-        print("input trees have to be either Tree_with_support or TreeList_with_support.")
-        sys.exit(1)
-        
-def STD_fp_fn(estimate, inputs):
-    """Computes false positive and false negative of STD.
-        
+    n_taxa = len(treelist[0].taxon_namespace)
+    refinfo = _create_refinfo(bipartitions, n_taxa)
+    n_bipartitions = len(bipartitions)
+    totalSupport = np.zeros(n_bipartitions)
+
+    for tree in treelist:
+        if tree.bipartition_encoding is None:
+            tree.encode_bipartitions()
+        tree_bipartition_ints = [bipartition.split_as_int() for bipartition in tree.bipartition_encoding]
+        for i, bipartition in enumerate(bipartitions):
+            bipar_int = bipartition.split_as_int()
+            if bipar_int in tree_bipartition_ints:
+                support = 1
+            elif refinfo[bipar_int][1] == 2:
+                support  = 0
+            else:
+                support = 1 - _minDist(refinfo[bipar_int], tree) / (refinfo[bipar_int][1] - 1)
+            totalSupport[i] += support
+    
+    totalSupport = totalSupport / len(treelist)
+    return totalSupport
+
+def unnormalized_transfer_support(bipartitions, treelist):
+    """Unnormalized version of transfer  expectation.
+    
+    Due to the lack of normalization, contrary to the usual transfer_support, the lower value (close to zero) indicates well supported edges.
+
     Parameters
     ----------
-    estimate : Tree_with_support
-        Estimates.
-    inputs : Tree_with_support or TreeList_with_support
-        Input trees to evaluate the estimate.      
+    bipartitions : Iterable of `dendropy.datamodel.treemodel.Bipartition`
+        Bipartitions to evaluate unnormalized transfer_support.
+    treelist : TreeList_with_support or Iterable of either Tree_with_support or 
+        Input trees to evaluate unnormalized transfer_support against.
 
     Returns
     -------
-    (float, float)
-        False positives and False negatives.
+    numpy.ndarray
+        Array of unnormalized transfer_support. 
     """
+    n_taxa = len(treelist[0].taxon_namespace)
+    refinfo = _create_refinfo(bipartitions, n_taxa)
+    n_bipartitions = len(bipartitions)
+    totalDistance = np.zeros(n_bipartitions)
+
+    for tree in treelist:
+        if tree.bipartition_encoding is None:
+            tree.encode_bipartitions()
+        tree_bipartition_ints = [bipartition.split_as_int() for bipartition in tree.bipartition_encoding]
+        for i, bipartition in enumerate(bipartitions):
+            bipar_int = bipartition.split_as_int()
+            if bipar_int in tree_bipartition_ints:
+                distance = 0
+            elif refinfo[bipar_int][1] == 2:
+                distance  = 1
+            else:
+                distance = _minDist(refinfo[bipar_int], tree)
+            totalDistance[i] += distance
     
-    if isinstance(inputs, Tree_with_support):
-        return STD1_fp_fn(inputs, estimate)
-    elif isinstance(inputs, TreeList_with_support):
-        fp = 0
-        fn = 0
-        for i in range(len(inputs)):
-            fp_tmp, fn_tmp = STD1_fp_fn(inputs[i], estimate)
-            fp += fp_tmp
-            fn += fn_tmp
-        fn /= len(inputs)
-        fp /= len(inputs)
-        return fp, fn
-    else:
-        print("input trees have to be either Tree_with_support or TreeList_with_support.")
-        sys.exit(1)
+    totalDistance = totalDistance/ len(treelist)
+    return totalDistance
