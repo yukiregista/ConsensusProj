@@ -234,7 +234,7 @@ def _minDist(refinfo_b, tree):
     
     return d
 
-def quartet_resolution(tree, parent_dir = None, normalized=True):
+def _quartet_resolution(tree, parent_dir = None, normalized=True):
     
     if parent_dir is None:
         conname = "__" + _randomname(10) + ".nwk"
@@ -258,7 +258,7 @@ def quartet_resolution(tree, parent_dir = None, normalized=True):
     else:
         return (q_dict["number_of_all_quartets"] - q_dict["number_of_unresolved_quartets_agreed"])
 
-def quartet_resolution2(tree_string, parent_dir = None, normalized=True):
+def _quartet_resolution_str(tree_string, parent_dir = None, normalized=True):
     
     if parent_dir is None:
         conname = "__" + _randomname(10) + ".nwk"
@@ -318,9 +318,9 @@ def tqdist_fp_fn(estimate, true, parent_dir = None):
 
     
     # check resolution
-    estimate_num_resolved = quartet_resolution(estimate, parent_dir=parent_dir, normalized=False)
+    estimate_num_resolved = _quartet_resolution(estimate, parent_dir=parent_dir, normalized=False)
     estimate_num_unresolved = tqdist_dict["number_of_all_quartets"] - estimate_num_resolved
-    true_num_resolved = quartet_resolution(true, parent_dir=parent_dir, normalized=False)
+    true_num_resolved = _quartet_resolution(true, parent_dir=parent_dir, normalized=False)
     true_num_unresolved = tqdist_dict["number_of_all_quartets"] - true_num_resolved
     
     # compute number of each component
@@ -351,7 +351,7 @@ def quartet_dist_fp_fn(estimate, inputs, parent_dir=None):
     Returns
     -------
     (float, float) or (numpy.ndarray, numpy.ndarray)
-        False positives and False negatives.
+        False positives and False negatives respectively.
     """
     if isinstance(inputs, Tree_with_support):
         fp, fn = tqdist_fp_fn(estimate, inputs, parent_dir=parent_dir)
@@ -407,9 +407,9 @@ def tqdist_fp_fn2(estimate, input_trees_string, n_trees, parent_dir = None):
             os.remove(item)
     
     # check resolution
-    estimate_num_resolved = quartet_resolution(estimate, parent_dir=parent_dir, normalized=False)
+    estimate_num_resolved = _quartet_resolution(estimate, parent_dir=parent_dir, normalized=False)
     estimate_num_unresolved = num_all_quartets - estimate_num_resolved
-    true_num_resolved = quartet_resolution2(input_trees_string, parent_dir=parent_dir, normalized=False)
+    true_num_resolved = _quartet_resolution_str(input_trees_string, parent_dir=parent_dir, normalized=False)
     true_num_unresolved = num_all_quartets - true_num_resolved
     
     # compute number of each component
@@ -492,9 +492,9 @@ def tqdist_fp_fn2(estimate, input_trees_string, n_trees, parent_dir = None):
 
     
 #     # check resolution
-#     estimate_num_resolved = quartet_resolution(estimate, parent_dir=parent_dir, normalized=False)
+#     estimate_num_resolved = _quartet_resolution(estimate, parent_dir=parent_dir, normalized=False)
 #     estimate_num_unresolved = tqdist_dict["number_of_all_quartets"] - estimate_num_resolved
-#     true_num_resolved = quartet_resolution(true, parent_dir=parent_dir, normalized=False)
+#     true_num_resolved = _quartet_resolution(true, parent_dir=parent_dir, normalized=False)
 #     true_num_unresolved = tqdist_dict["number_of_all_quartets"] - true_num_resolved
     
 #     # compute number of each component
@@ -794,7 +794,7 @@ class Tree_with_support(dendropy.Tree):
         internal_num = len(self.internal_edges(exclude_seed_edge=True))
         return internal_num / possible_num
     
-    def quartet_resolution(self):
+    def _quartet_resolution(self):
         """Returns quartet resolution of self.
         
         The quartet resolution is defined by:
@@ -811,9 +811,9 @@ class Tree_with_support(dendropy.Tree):
             Quartet resolution
         """
         # returns how resolved tree is w.r.t. #internal branches
-        return quartet_resolution(self)
+        return _quartet_resolution(self)
 
-    def std_greedy(self, treelist, normalized=True):
+    def STD_greedy_pruning(self, treelist, normalized=True):
         """Apply greedy pruning algorithm w.r.t. STD loss.
 
         Parameters
@@ -833,7 +833,7 @@ class Tree_with_support(dendropy.Tree):
         srp.greedy_pruning()
         return srp.current_tree
     
-    def sqd_greedy(self, treelist, parent_dir=None):
+    def SQD_greedy_pruning(self, treelist, parent_dir=None):
         """Apply greedy pruning algorithm w.r.t. SQD loss.
 
         Parameters
@@ -1447,7 +1447,7 @@ class TreeList_with_support(dendropy.TreeList):
         """
         return transfer_support(bipartitions, self)
     
-    def majority_consensus(self):
+    def majority_rule_consensus(self):
         """Computes majority rule consensus.
 
         Returns
@@ -1466,8 +1466,8 @@ class TreeList_with_support(dendropy.TreeList):
         # majority_tree.branch_support = branch_support
         return Tree_with_support(majority_tree, branch_support = branch_support, taxon_namespace = self.taxon_namespace)
 
-    def MCC_tree(self):
-        """Computes majority rule consensus.
+    def MCC(self):
+        """Computes Maximum Clade Credibility (MCC) tree.
 
         Returns
         -------
@@ -1529,91 +1529,91 @@ class TreeList_with_support(dendropy.TreeList):
         
 
     
-    def greedy_transfer_support_consensus(self, normalization : bool = False):
-        """Greedily (in terms of transfer_support or its unnormalized version) add edges to construct consensus tree.
+    # def greedy_transfer_support_consensus(self, normalization : bool = False):
+    #     """Greedily (in terms of transfer_support or its unnormalized version) add edges to construct consensus tree.
         
-        The candidate bipartitions are the set of all bipartitions included in self.
+    #     The candidate bipartitions are the set of all bipartitions included in self.
 
-        Parameters
-        ----------
-        normalization : bool, optional
-            Whether to use the usual transfer_support or unnormalized transfer_support.
+    #     Parameters
+    #     ----------
+    #     normalization : bool, optional
+    #         Whether to use the usual transfer_support or unnormalized transfer_support.
 
-        Returns
-        -------
-        Tree_with_support
-            Consensus tree.
-        """
-        all_edges = list(self.edge_dict.keys())
-        all_bipartitions = [dendropy.Bipartition(leafset_bitmask = item, tree_leafset_bitmask = 2**self.n_taxa - 1) for item in all_edges]
-        all_Bits = [Bits(uint = item.split_as_int(), length=self.n_taxa) for item in all_bipartitions]
-        # compile all bipartitions
-        for bipartition in all_bipartitions:
-            bipartition.compile_leafset_bitmask()
+    #     Returns
+    #     -------
+    #     Tree_with_support
+    #         Consensus tree.
+    #     """
+    #     all_edges = list(self.edge_dict.keys())
+    #     all_bipartitions = [dendropy.Bipartition(leafset_bitmask = item, tree_leafset_bitmask = 2**self.n_taxa - 1) for item in all_edges]
+    #     all_Bits = [Bits(uint = item.split_as_int(), length=self.n_taxa) for item in all_bipartitions]
+    #     # compile all bipartitions
+    #     for bipartition in all_bipartitions:
+    #         bipartition.compile_leafset_bitmask()
         
-        encoding_bipartitions = []; encoding_TS = []
-        if normalization:
-            if self.all_transfer_support_dict is None:
-                transfer_support_list=  self.transfer_support(all_bipartitions)
-            else:
-                transfer_support_list = list(self.all_transfer_support_dict.values())
-            sort_index = np.argsort(transfer_support_list)[::-1] # high to low
-            all_Bits_sorted = [all_Bits[item] for item in sort_index]
-            all_bipartitions_sorted =  [all_bipartitions[item] for item in sort_index]
-            transfer_support_list_sorted = [transfer_support_list[item] for item in sort_index]
-            while len(all_Bits_sorted) > 0:
-                bipar_bits = all_Bits_sorted.pop(0)
-                TS = transfer_support_list_sorted.pop(0)
-                bipartition = all_bipartitions_sorted.pop(0)
-                encoding_TS.append(TS)
-                encoding_bipartitions.append(bipartition)
-                # delete incompatible edges
-                if TS == 1:
-                    count_1 = bipar_bits.count(1)
-                    if (count_1 <= 1) or (count_1 >= self.n_taxa - 1):
-                        continue # compatible with all edges
+    #     encoding_bipartitions = []; encoding_TS = []
+    #     if normalization:
+    #         if self.all_transfer_support_dict is None:
+    #             transfer_support_list=  self.transfer_support(all_bipartitions)
+    #         else:
+    #             transfer_support_list = list(self.all_transfer_support_dict.values())
+    #         sort_index = np.argsort(transfer_support_list)[::-1] # high to low
+    #         all_Bits_sorted = [all_Bits[item] for item in sort_index]
+    #         all_bipartitions_sorted =  [all_bipartitions[item] for item in sort_index]
+    #         transfer_support_list_sorted = [transfer_support_list[item] for item in sort_index]
+    #         while len(all_Bits_sorted) > 0:
+    #             bipar_bits = all_Bits_sorted.pop(0)
+    #             TS = transfer_support_list_sorted.pop(0)
+    #             bipartition = all_bipartitions_sorted.pop(0)
+    #             encoding_TS.append(TS)
+    #             encoding_bipartitions.append(bipartition)
+    #             # delete incompatible edges
+    #             if TS == 1:
+    #                 count_1 = bipar_bits.count(1)
+    #                 if (count_1 <= 1) or (count_1 >= self.n_taxa - 1):
+    #                     continue # compatible with all edges
                 
-                remain_index = [i for i in range(len(all_Bits_sorted)) if _compatible(all_Bits_sorted[i], bipar_bits) ]
-                all_Bits_sorted = [all_Bits_sorted[item] for item in remain_index]
-                all_bipartitions_sorted = [all_bipartitions_sorted[item] for item in remain_index]
-                transfer_support_list_sorted = [transfer_support_list_sorted[item] for item in remain_index]
-        else:
-            if self.all_transfer_support_dict is None:
-                transfer_support_list= unnormalized_transfer_support(all_bipartitions, self)
-            else:
-                normalized_transfer_support_list = np.array(list(self.all_transfer_support_dict.values()))
-                tmp = 1 - normalized_transfer_support_list
-                refinfos = _create_refinfo(all_bipartitions, self.n_taxa)
-                normalizing_constants = np.array([refinfos[bipar_int][1] - 1 for bipar_int in all_edges])
-                transfer_support_list = tmp * normalizing_constants
+    #             remain_index = [i for i in range(len(all_Bits_sorted)) if _compatible(all_Bits_sorted[i], bipar_bits) ]
+    #             all_Bits_sorted = [all_Bits_sorted[item] for item in remain_index]
+    #             all_bipartitions_sorted = [all_bipartitions_sorted[item] for item in remain_index]
+    #             transfer_support_list_sorted = [transfer_support_list_sorted[item] for item in remain_index]
+    #     else:
+    #         if self.all_transfer_support_dict is None:
+    #             transfer_support_list= unnormalized_transfer_support(all_bipartitions, self)
+    #         else:
+    #             normalized_transfer_support_list = np.array(list(self.all_transfer_support_dict.values()))
+    #             tmp = 1 - normalized_transfer_support_list
+    #             refinfos = _create_refinfo(all_bipartitions, self.n_taxa)
+    #             normalizing_constants = np.array([refinfos[bipar_int][1] - 1 for bipar_int in all_edges])
+    #             transfer_support_list = tmp * normalizing_constants
 
-            sort_index = np.argsort(transfer_support_list) # low to high
-            all_Bits_sorted = [all_Bits[item] for item in sort_index]
-            all_bipartitions_sorted =  [all_bipartitions[item] for item in sort_index]
-            transfer_support_list_sorted = list(transfer_support_list[sort_index])
-            while len(all_Bits_sorted) > 0:
-                bipar_bits = all_Bits_sorted.pop(0)
-                TS = transfer_support_list_sorted.pop(0)
-                bipartition = all_bipartitions_sorted.pop(0)
-                encoding_TS.append(TS)
-                encoding_bipartitions.append(bipartition)
+    #         sort_index = np.argsort(transfer_support_list) # low to high
+    #         all_Bits_sorted = [all_Bits[item] for item in sort_index]
+    #         all_bipartitions_sorted =  [all_bipartitions[item] for item in sort_index]
+    #         transfer_support_list_sorted = list(transfer_support_list[sort_index])
+    #         while len(all_Bits_sorted) > 0:
+    #             bipar_bits = all_Bits_sorted.pop(0)
+    #             TS = transfer_support_list_sorted.pop(0)
+    #             bipartition = all_bipartitions_sorted.pop(0)
+    #             encoding_TS.append(TS)
+    #             encoding_bipartitions.append(bipartition)
 
-                # delete incompatible edges
-                if TS == 0:
-                    count_1 = bipar_bits.count(1)
-                    if (count_1 <= 1) or (count_1 >= self.n_taxa - 1):
-                        continue # compatible with all edges
-                remain_index = [i for i in range(len(all_Bits_sorted)) if _compatible(all_Bits_sorted[i], bipar_bits) ]
-                all_Bits_sorted = [all_Bits_sorted[item] for item in remain_index]
-                all_bipartitions_sorted = [all_bipartitions_sorted[item] for item in remain_index]
-                transfer_support_list_sorted = [transfer_support_list_sorted[item] for item in remain_index]
+    #             # delete incompatible edges
+    #             if TS == 0:
+    #                 count_1 = bipar_bits.count(1)
+    #                 if (count_1 <= 1) or (count_1 >= self.n_taxa - 1):
+    #                     continue # compatible with all edges
+    #             remain_index = [i for i in range(len(all_Bits_sorted)) if _compatible(all_Bits_sorted[i], bipar_bits) ]
+    #             all_Bits_sorted = [all_Bits_sorted[item] for item in remain_index]
+    #             all_bipartitions_sorted = [all_bipartitions_sorted[item] for item in remain_index]
+    #             transfer_support_list_sorted = [transfer_support_list_sorted[item] for item in remain_index]
         
-        encoding_bipartition_ints = [bipar.split_as_int() for bipar in encoding_bipartitions]
-        greedy_tree = dendropy.Tree.from_bipartition_encoding(encoding_bipartitions, self.taxon_namespace)
-        if normalization:
-            return Tree_with_support(greedy_tree, transfer_support = dict(zip( encoding_bipartition_ints, encoding_TS )))
-        else:
-            return Tree_with_support(greedy_tree)
+    #     encoding_bipartition_ints = [bipar.split_as_int() for bipar in encoding_bipartitions]
+    #     greedy_tree = dendropy.Tree.from_bipartition_encoding(encoding_bipartitions, self.taxon_namespace)
+    #     if normalization:
+    #         return Tree_with_support(greedy_tree, transfer_support = dict(zip( encoding_bipartition_ints, encoding_TS )))
+    #     else:
+    #         return Tree_with_support(greedy_tree)
 
     def Rstar_consensus(self, root_index = None, root_name = None):
         """Compute R* consensus.
@@ -1686,7 +1686,7 @@ class TreeList_with_support(dendropy.TreeList):
     #     tree.encode_bipartitions()
 
     #     # now construct majority consensus
-    #     maj_tree = self.majority_consensus()
+    #     maj_tree = self.majority_rule_consensus()
     #     maj_tree.encode_bipartitions()
 
     #     # store legit bipartitions
