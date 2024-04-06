@@ -52,28 +52,28 @@ def _get_newick(node, parent_dist, leaf_names, newick='') -> str:
         newick = "(%s" % (newick)
         return newick
 
-def TBE(bipartitions, treelist):
-    """Compute TBE of given set of bipartitions against input trees.
+def transfer_support(bipartitions, treelist):
+    """Compute transfer_support of given set of bipartitions against input trees.
 
     Parameters
     ----------
     bipartitions : Iterable of `dendropy.datamodel.treemodel.Bipartition`
-        Bipartitions to evaluate TBE support.
+        Bipartitions to evaluate transfer support.
     treelist : TreeList_with_support or Iterable of either Tree_with_support or 
-        Input trees to evaluate TBE support against.
+        Input trees to evaluate transfer support against.
     
     Notes
     -----
     Trees that produce input bipartitions and treelist need to have the same taxon_namespace.
     
-    Otherwise, the produced TBE support will not be a valid one.
+    Otherwise, the produced transfer support will not be a valid one.
     
     Please check this manually, as we don't check it inside the function.
 
     Returns
     -------
     numpy.ndarray
-        Array of TBE support. 
+        Array of transfer support. 
     """
     
     n_taxa = len(treelist[0].taxon_namespace)
@@ -98,22 +98,22 @@ def TBE(bipartitions, treelist):
     totalSupport = totalSupport / len(treelist)
     return totalSupport
 
-def unnormalized_TBE(bipartitions, treelist):
-    """Unnormalized version of transfer bootstrap expectation.
+def unnormalized_transfer_support(bipartitions, treelist):
+    """Unnormalized version of transfer  expectation.
     
-    Due to the lack of normalization, contrary to the usual TBE, the lower value (close to zero) indicates well supported edges.
+    Due to the lack of normalization, contrary to the usual transfer_support, the lower value (close to zero) indicates well supported edges.
 
     Parameters
     ----------
     bipartitions : Iterable of `dendropy.datamodel.treemodel.Bipartition`
-        Bipartitions to evaluate unnormalized TBE.
+        Bipartitions to evaluate unnormalized transfer_support.
     treelist : TreeList_with_support or Iterable of either Tree_with_support or 
-        Input trees to evaluate unnormalized TBE against.
+        Input trees to evaluate unnormalized transfer_support against.
 
     Returns
     -------
     numpy.ndarray
-        Array of unnormalized TBE. 
+        Array of unnormalized transfer_support. 
     """
     n_taxa = len(treelist[0].taxon_namespace)
     refinfo = _create_refinfo(bipartitions, n_taxa)
@@ -139,7 +139,7 @@ def unnormalized_TBE(bipartitions, treelist):
 
 
 def _create_refinfo(bipartitions, n_taxa):
-    """Helper function for TBE
+    """Helper function for transfer_support
 
     Parameters
     ----------
@@ -172,7 +172,7 @@ def _create_refinfo(bipartitions, n_taxa):
     return refinfo
 
 def _minDist(refinfo_b, tree):
-    """Helper minDist function for computing TBE.
+    """Helper minDist function for computing transfer_support.
 
     Parameters
     ----------
@@ -605,22 +605,24 @@ def quartet_pruning(consensus_tree, input_trees, parent_dir=None):
 
 
 class Tree_with_support(dendropy.Tree):
-    """Child class of `dendropy.datamodel.treemodel.Tree`, with supportfor support values.
+    """Child class of `dendropy.datamodel.treemodel.Tree`, with support for computing and storing support values.
     
     Attributes:
         x : 1
     """
     def __init__(self, *args, **kwargs):
-        bootstrap_support = kwargs.pop("bootstrap_support", None)
-        TBE_support = kwargs.pop("TBE_support", None)
+        branch_support = kwargs.pop("branch_support", None)
+        transfer_support = kwargs.pop("transfer_support", None)
         super().__init__(*args, **kwargs)
-        self.bootstrap_support = bootstrap_support
-        self.TBE_support = TBE_support
+        self.branch_support = branch_support
+        self.transfer_support = transfer_support
         self.n_taxa = len(self.taxon_namespace)
         self.encode_bipartitions() #some methods (from_bipartitions etc) seem to produce a tree with bad bipartition_encoding, so renew it 
 
-    def compute_bootstrap(self, treelist):
-        """Compute bootstrap values of self against input ``treelist`` and update `self.bootstrap_support`
+    def compute_branch_support(self, treelist):
+        """Compute branch support values of self against input ``treelist`` and update `self.branch_support`
+        If Bayesian posterior draws are given as ``treelist``, `branch_support` corresponds to the posterior support.
+        If Bootstrap estimates are given as ``treelist``, `branch_support` corresponds to the traditional bootstrap support. 
 
         Parameters
         ----------
@@ -632,26 +634,26 @@ class Tree_with_support(dendropy.Tree):
         None
         """
         assert self.taxon_namespace == treelist.taxon_namespace
-        bootstrap_support = dict()
+        branch_support = dict()
         if self.bipartition_encoding is None:
             self.encode_bipartitions()
         for bipar in self.bipartition_encoding:
             key = bipar.split_as_int()
             if key in treelist.edge_dict.keys():
-                bootstrap_support[key] = treelist.edge_dict[key]/len(treelist)
+                branch_support[key] = treelist.edge_dict[key]/len(treelist)
             else:
-                bootstrap_support[key] = 0
-        self.bootstrap_support = bootstrap_support
+                branch_support[key] = 0
+        self.branch_support = branch_support
         return None
     
     
-    def compute_TBE(self, treelist):
-        """Compute TBE support of self against input ``treelist`` and update `self.TBE_support`
+    def compute_transfer_support(self, treelist):
+        """Compute transfer_support support of self against input ``treelist`` and update `self.transfer_support`
 
         Parameters
         ----------
         treelist : TreeList_with_support
-            List of trees to evaluate TBE support against.
+            List of trees to evaluate transfer_support support against.
 
         Returns
         -------
@@ -662,8 +664,8 @@ class Tree_with_support(dendropy.Tree):
             self.encode_bipartitions()
         bipartitions = self.bipartition_encoding
         bipartitions_ints = [bipar.split_as_int() for bipar in bipartitions]
-        TBE_list = TBE(bipartitions, treelist)
-        self.TBE_support = dict(zip(bipartitions_ints, TBE_list))
+        transfer_support_list = transfer_support(bipartitions, treelist)
+        self.transfer_support = dict(zip(bipartitions_ints, transfer_support_list))
         return None
 
     def clone(self, depth=1):
@@ -680,7 +682,7 @@ class Tree_with_support(dendropy.Tree):
             _description_
         """
         cloned_tree = super().clone(depth=1)
-        return Tree_with_support(cloned_tree, bootstrap_support=self.bootstrap_support, TBE_support = self.TBE_support)
+        return Tree_with_support(cloned_tree, branch_support=self.branch_support, transfer_support = self.transfer_support)
         
 
     def _make_Bio_tree(self, support = None):
@@ -731,8 +733,8 @@ class Tree_with_support(dendropy.Tree):
             The type of support values to plot, by default "plain" (no support values are plotted).
             If not "plain", it should be one of the followings:
             
-            - "bootstrap" : bootstrap support
-            - "TBE" : TBE support
+            - "branch support" : Branch support
+            - "transfer support" : Transfer support
             
             If these support values are not computed before calling this function, it will use the option "plain".
             
@@ -741,30 +743,30 @@ class Tree_with_support(dendropy.Tree):
             Decimal precision of support values, by default None (no rounding).
         """
 
-        ## type: one of ["plain", "bootstrap", "TBE"]. If other name is provided, it will automatically plot "plain" one.
+        ## type: one of ["plain", "bootstrap", "transfer_support"]. If other name is provided, it will automatically plot "plain" one.
         ## decimals: int, if provided, round confidence number at that number
 
         if ax is None:
             fig, ax = plt.subplots(figsize = (20,20))
         tree_Bio = Phylo.read(file = StringIO(self.as_string(schema="newick")) , format = "newick" )
 
-        if type == "bootstrap":
-            if self.bootstrap_support is None:
-                warnings.warn("Bootstrap values has not been provided to the instance. Plotting the plain tree.")
+        if type == "branch support":
+            if self.branch_support is None:
+                warnings.warn("Branch support values has not been provided to the instance. Plotting the plain tree.")
             if decimals is not None:
-                boot = {k:np.round(v, decimals=decimals) for k, v in self.bootstrap_support.items()}
+                boot = {k:np.round(v, decimals=decimals) for k, v in self.branch_support.items()}
             else:
-                boot = self.bootstrap_support
+                boot = self.branch_support
             tree_Bio = self._make_Bio_tree(boot)
             Phylo.draw( tree_Bio, axes = ax)
-        elif type == "TBE":
-            if self.TBE_support is None:
-                warnings.warn("TBE values has not been provided to the instance. Plotting the plain tree.")
+        elif type == "transfer support":
+            if self.transfer_support is None:
+                warnings.warn("transfer support values has not been provided to the instance. Plotting the plain tree.")
             if decimals is not None:
-                tbe_supp = {k:np.round(v, decimals=decimals) for k, v in self.TBE_support.items()}
+                transfer_support_supp = {k:np.round(v, decimals=decimals) for k, v in self.transfer_support.items()}
             else:
-                tbe_supp = self.TBE_support
-            tree_Bio = self._make_Bio_tree(tbe_supp)
+                transfer_support_supp = self.transfer_support
+            tree_Bio = self._make_Bio_tree(transfer_support_supp)
             Phylo.draw( tree_Bio, axes = ax)
         else:
             tree_Bio = self._make_Bio_tree()
@@ -863,16 +865,16 @@ class Tree_with_support(dendropy.Tree):
         Tree_with_support
             Thresholded consensus
         """
-        if self.bootstrap_support is None:
-            self.compute_bootstrap(treelist)
+        if self.branch_support is None:
+            self.compute_branch_support(treelist)
         
-        bipars = []; bootstrap_support = dict(); TBE_support = dict()
+        bipars = []; branch_support = dict(); transfer_support = dict()
         for node in self.postorder_node_iter():
             splitint = node.bipartition.split_as_int()
-            if self.bootstrap_support[splitint] > threshold:
+            if self.branch_support[splitint] > threshold:
                 bipars.append(node.bipartition)
-                bootstrap_support[splitint] = self.bootstrap_support[splitint]
-        thresholded = Tree_with_support(dendropy.Tree.from_bipartition_encoding(bipars, self.taxon_namespace), bootstrap_support = bootstrap_support, TBE_support = TBE_support)
+                branch_support[splitint] = self.branch_support[splitint]
+        thresholded = Tree_with_support(dendropy.Tree.from_bipartition_encoding(bipars, self.taxon_namespace), branch_support = branch_support, transfer_support = transfer_support)
         return thresholded
          
         
@@ -886,9 +888,9 @@ class Tree_with_support(dendropy.Tree):
             _description_
         """
         tree = dendropy.Tree.get(**kwargs)
-        bootstrap_support = kwargs.pop("bootstrap_support", None)
-        TBE_support = kwargs.pop("TBE_support", None)
-        return cls(tree, bootstrap_support = bootstrap_support, TBE_support = TBE_support)
+        branch_support = kwargs.pop("branch_support", None)
+        transfer_support = kwargs.pop("transfer_support", None)
+        return cls(tree, branch_support = branch_support, transfer_support = transfer_support)
 
 
 
@@ -948,7 +950,7 @@ def _minDist_and_match2(refinfo_b, tree):
 
 
 
-def _TBE_and_match2(bipartitions, tree:Tree_with_support):
+def _transfer_support_and_match2(bipartitions, tree:Tree_with_support):
     n_taxa = len(tree.taxon_namespace)
     refinfo = _create_refinfo(bipartitions, n_taxa)
     n_bipartitions = len(bipartitions)
@@ -983,7 +985,7 @@ def _TBE_and_match2(bipartitions, tree:Tree_with_support):
     
     return totalSupport, matched_list, secondSupport, second_match_list
 
-def _unnormalized_TBE_and_match2(bipartitions, tree:Tree_with_support):
+def _unnormalized_transfer_support_and_match2(bipartitions, tree:Tree_with_support):
     n_taxa = len(tree.taxon_namespace)
     refinfo = _create_refinfo(bipartitions, n_taxa)
     n_bipartitions = len(bipartitions)
@@ -1033,29 +1035,29 @@ class std_risk_prune:
             self.current_tree.encode_bipartitions()
         bipartitions = self.current_tree.bipartition_encoding
         bipartition_ints = [bipar.split_as_int() for bipar in bipartitions]
-        print("computing TBE...", flush=True)
+        print("computing transfer_support...", flush=True)
         if normalized:
-            TBE_list = TBE(bipartitions, self.trees)
+            transfer_support_list = transfer_support(bipartitions, self.trees)
         else:
-            TBE_list = unnormalized_TBE(bipartitions, self.trees)
-        self.TBE_support = dict(zip(bipartition_ints, TBE_list))
+            transfer_support_list = unnormalized_transfer_support(bipartitions, self.trees)
+        self.transfer_support = dict(zip(bipartition_ints, transfer_support_list))
         if normalized:
-            self.fp = np.sum([1-support for key, support in self.TBE_support.items()]) * self.n_trees
+            self.fp = np.sum([1-support for key, support in self.transfer_support.items()]) * self.n_trees
         else:
-            self.fp = np.sum([support for key, support in self.TBE_support.items()]) * self.n_trees
+            self.fp = np.sum([support for key, support in self.transfer_support.items()]) * self.n_trees
         # use edge dict
         self.edge_dict = self.trees.edge_dict
         self.trees_bipartition_ints = list(self.edge_dict.keys())
         self.trees_bipartitions = [dendropy.Bipartition(leafset_bitmask = item, tree_leafset_bitmask = 2**self.current_tree.n_taxa - 1) for item in self.trees_bipartition_ints]
-        print("computing TBE for the other side...", flush=True)
+        print("computing transfer_support for the other side...", flush=True)
         if normalized:
-            supports, matched_list, second_supports, second_matched_list = _TBE_and_match2(self.trees_bipartitions, self.current_tree)
+            supports, matched_list, second_supports, second_matched_list = _transfer_support_and_match2(self.trees_bipartitions, self.current_tree)
         else:
-            supports, matched_list, second_supports, second_matched_list = _unnormalized_TBE_and_match2(self.trees_bipartitions, self.current_tree)
+            supports, matched_list, second_supports, second_matched_list = _unnormalized_transfer_support_and_match2(self.trees_bipartitions, self.current_tree)
 
         # initialize match_dict, reverse_match_dict, 
-        self.match_dict = dict(zip(self.TBE_support.keys(), [list() for i in range(len(self.TBE_support))]))
-        self.second_match_dict = dict(zip(self.TBE_support.keys(), [list() for i in range(len(self.TBE_support))]))
+        self.match_dict = dict(zip(self.transfer_support.keys(), [list() for i in range(len(self.transfer_support))]))
+        self.second_match_dict = dict(zip(self.transfer_support.keys(), [list() for i in range(len(self.transfer_support))]))
         self.reverse_match_dict = dict(zip(self.trees_bipartition_ints, [list() for i in range(len(self.trees_bipartition_ints))]))
         self.match_dict[-1] = list()
         self.second_match_dict[-1] = list()
@@ -1078,9 +1080,9 @@ class std_risk_prune:
 
     def find_risk_reduction(self, prune_bipar_int):
         if self.normalized:
-            fp_reduction = (1-self.TBE_support[prune_bipar_int]) * self.n_trees #positive value
+            fp_reduction = (1-self.transfer_support[prune_bipar_int]) * self.n_trees #positive value
         else:
-            fp_reduction = self.TBE_support[prune_bipar_int] * self.n_trees
+            fp_reduction = self.transfer_support[prune_bipar_int] * self.n_trees
         # compute fn_increase
         ## identify bipartitions that needs rematch
         matched_bipars = self.match_dict[prune_bipar_int]
@@ -1099,9 +1101,9 @@ class std_risk_prune:
     def prune(self, prune_bipar_int):
         #print("before prune rsupp: ", self.rsupp_dict[3713820117856141855489523712], "second: ", self.second_supp_dict[3713820117856141855489523712])
         if self.normalized:
-            fp_reduction = (1-self.TBE_support[prune_bipar_int]) * self.n_trees
+            fp_reduction = (1-self.transfer_support[prune_bipar_int]) * self.n_trees
         else:
-            fp_reduction = self.TBE_support[prune_bipar_int] * self.n_trees
+            fp_reduction = self.transfer_support[prune_bipar_int] * self.n_trees
         matched_bipars = self.match_dict[prune_bipar_int]
         rematch_bipartitions = {item.split_as_int():item for item in self.trees_bipartitions if item.split_as_int() in matched_bipars}
         rematch_bipartitions = [rematch_bipartitions[item] for item in matched_bipars]
@@ -1117,18 +1119,18 @@ class std_risk_prune:
                 for i in range(len(matched_bipars))]) # positive value
         new_bipartitions = [deepcopy(bipar) for bipar in self.current_tree.bipartition_encoding if bipar.split_as_int()!=prune_bipar_int]
         new_tree = Tree_with_support(dendropy.Tree.from_bipartition_encoding(new_bipartitions, self.current_tree.taxon_namespace),
-                                        TBE_support = self.TBE_support)
+                                        transfer_support = self.transfer_support)
         self.current_tree = new_tree
         self.current_tree.encode_bipartitions()
-        self.TBE_support.pop(prune_bipar_int)
+        self.transfer_support.pop(prune_bipar_int)
         self.fp = self.fp - fp_reduction
-        #print("fp diff:", np.sum([1-support for key, support in self.TBE_support.items()]) * self.n_trees - self.fp)
+        #print("fp diff:", np.sum([1-support for key, support in self.transfer_support.items()]) * self.n_trees - self.fp)
 
         # run matching for rematch_bipartitions.
         if self.normalized:
-            supports, matched_list, second_supports, second_matched_list = _TBE_and_match2(rematch_bipartitions, self.current_tree)
+            supports, matched_list, second_supports, second_matched_list = _transfer_support_and_match2(rematch_bipartitions, self.current_tree)
         else:
-            supports, matched_list, second_supports, second_matched_list = _unnormalized_TBE_and_match2(rematch_bipartitions, self.current_tree)
+            supports, matched_list, second_supports, second_matched_list = _unnormalized_transfer_support_and_match2(rematch_bipartitions, self.current_tree)
     
         # renew match dict, second_match_dict, and reverse_match_dict and second_match_dict
         self.match_dict.pop(prune_bipar_int)
@@ -1149,9 +1151,9 @@ class std_risk_prune:
             self.second_supp_dict[bipar_int] = second_supports[i]
 
         if self.normalized:
-            supports, matched_list, second_supports, second_matched_list = _TBE_and_match2(second_rematch_bipartitions, self.current_tree)
+            supports, matched_list, second_supports, second_matched_list = _transfer_support_and_match2(second_rematch_bipartitions, self.current_tree)
         else:
-            supports, matched_list, second_supports, second_matched_list = _unnormalized_TBE_and_match2(second_rematch_bipartitions, self.current_tree)
+            supports, matched_list, second_supports, second_matched_list = _unnormalized_transfer_support_and_match2(second_rematch_bipartitions, self.current_tree)
         self.second_match_dict.pop(prune_bipar_int)
         for i in range(len(second_matched_bipars)):
             bipar_int = second_matched_bipars[i]
@@ -1173,7 +1175,7 @@ class std_risk_prune:
 
     def greedy_pruning(self):
         while True:
-            bipartition_ints = list(self.TBE_support.keys())
+            bipartition_ints = list(self.transfer_support.keys())
             print("current risk:", self.fp + self.fn)
             # find risk reduction
             risk_reductions = [self.find_risk_reduction(bipar_int) for bipar_int in bipartition_ints]
@@ -1348,17 +1350,17 @@ class TreeList_with_support(dendropy.TreeList):
                     edge_dict[key] = 1
         return edge_dict
     
-    def _make_all_TBE_dict(self):
+    def _make_all_transfer_support_dict(self):
         keys = list(self.edge_dict.keys())
         bipartitions = [dendropy.Bipartition(leafset_bitmask = item, tree_leafset_bitmask = 2**self.n_taxa - 1, compile_bipartition=True) for item in keys]
-        tbe_list = self.TBE(bipartitions)
+        transfer_support_list = self.transfer_support(bipartitions)
         bipartition_ints = [bipar.split_as_int() for bipar in bipartitions]
-        self.all_TBE_dict =  dict(zip(bipartition_ints, tbe_list))
+        self.all_transfer_support_dict =  dict(zip(bipartition_ints, transfer_support_list))
         return None
 
     def __init__(self, *args, **kwargs):
         edge_dict = kwargs.pop("edge_dict", None)
-        self.all_TBE_dict =  kwargs.pop("all_TBE_dict", None)
+        self.all_transfer_support_dict =  kwargs.pop("all_transfer_support_dict", None)
         if len(args) ==  1 and isinstance(args[0], dendropy.TreeList):
             # just reference it
             self.__dict__.update(args[0].__dict__)
@@ -1398,7 +1400,7 @@ class TreeList_with_support(dendropy.TreeList):
 
 
 
-    def bootstrap_support(self, bipartition):
+    def branch_support(self, bipartition):
         """Compute bootstrap support of a bipartition against self.
 
         Parameters
@@ -1419,31 +1421,31 @@ class TreeList_with_support(dendropy.TreeList):
             return self.edge_dict[key]/self.n_trees
         return 0
     
-    def compute_all_TBE(self):
-        """Compute all TBE of all bipartitions present in the treelist against self and save it in self.all_TBE_dict.
+    def compute_all_transfer_support(self):
+        """Compute all transfer_support of all bipartitions present in the treelist against self and save it in self.all_transfer_support_dict.
 
         Returns
         -------
         dict
-            Dictionary that has integers representing bipartitions as keys and TBE support as values. 
+            Dictionary that has integers representing bipartitions as keys and transfer_support support as values. 
         """
-        self._make_all_TBE_dict()
-        return self.all_TBE_dict
+        self._make_all_transfer_support_dict()
+        return self.all_transfer_support_dict
     
-    def TBE(self, bipartitions):
-        """Compute TBE support of bipartitions against self.
+    def transfer_support(self, bipartitions):
+        """Compute transfer_support support of bipartitions against self.
 
         Parameters
         ----------
         bipartitions : Iterable of `dendropy.datamodel.treemodel.Bipartition`
-        Bipartitions to evaluate TBE support.
+        Bipartitions to evaluate transfer_support support.
 
         Returns
         -------
         numpy.ndarray
-            Array of TBE support
+            Array of transfer_support support
         """
-        return TBE(bipartitions, self)
+        return transfer_support(bipartitions, self)
     
     def majority_consensus(self):
         """Computes majority rule consensus.
@@ -1460,9 +1462,9 @@ class TreeList_with_support(dendropy.TreeList):
                 bipartitions.append(dendropy.Bipartition(bitmask = k, leafset_bitmask = k, tree_leafset_bitmask = tree_leafset_bitmask, is_rooted=False))
                 bipar_ints.append(k); bipar_bs.append(v/self.n_trees)
         majority_tree = dendropy.Tree.from_bipartition_encoding(bipartitions, self.taxon_namespace)
-        bootstrap_support = dict(zip(bipar_ints, bipar_bs))
-        # majority_tree.bootstrap_support = bootstrap_support
-        return Tree_with_support(majority_tree, bootstrap_support = bootstrap_support, taxon_namespace = self.taxon_namespace)
+        branch_support = dict(zip(bipar_ints, bipar_bs))
+        # majority_tree.branch_support = branch_support
+        return Tree_with_support(majority_tree, branch_support = branch_support, taxon_namespace = self.taxon_namespace)
 
     def MCC_tree(self):
         """Computes majority rule consensus.
@@ -1527,15 +1529,15 @@ class TreeList_with_support(dendropy.TreeList):
         
 
     
-    def greedy_TBE_consensus(self, normalization : bool = False):
-        """Greedily (in terms of TBE or its unnormalized version) add edges to construct consensus tree.
+    def greedy_transfer_support_consensus(self, normalization : bool = False):
+        """Greedily (in terms of transfer_support or its unnormalized version) add edges to construct consensus tree.
         
         The candidate bipartitions are the set of all bipartitions included in self.
 
         Parameters
         ----------
         normalization : bool, optional
-            Whether to use the usual TBE or unnormalized TBE.
+            Whether to use the usual transfer_support or unnormalized transfer_support.
 
         Returns
         -------
@@ -1551,17 +1553,17 @@ class TreeList_with_support(dendropy.TreeList):
         
         encoding_bipartitions = []; encoding_TS = []
         if normalization:
-            if self.all_TBE_dict is None:
-                tbe_list=  self.TBE(all_bipartitions)
+            if self.all_transfer_support_dict is None:
+                transfer_support_list=  self.transfer_support(all_bipartitions)
             else:
-                tbe_list = list(self.all_TBE_dict.values())
-            sort_index = np.argsort(tbe_list)[::-1] # high to low
+                transfer_support_list = list(self.all_transfer_support_dict.values())
+            sort_index = np.argsort(transfer_support_list)[::-1] # high to low
             all_Bits_sorted = [all_Bits[item] for item in sort_index]
             all_bipartitions_sorted =  [all_bipartitions[item] for item in sort_index]
-            tbe_list_sorted = [tbe_list[item] for item in sort_index]
+            transfer_support_list_sorted = [transfer_support_list[item] for item in sort_index]
             while len(all_Bits_sorted) > 0:
                 bipar_bits = all_Bits_sorted.pop(0)
-                TS = tbe_list_sorted.pop(0)
+                TS = transfer_support_list_sorted.pop(0)
                 bipartition = all_bipartitions_sorted.pop(0)
                 encoding_TS.append(TS)
                 encoding_bipartitions.append(bipartition)
@@ -1574,24 +1576,24 @@ class TreeList_with_support(dendropy.TreeList):
                 remain_index = [i for i in range(len(all_Bits_sorted)) if _compatible(all_Bits_sorted[i], bipar_bits) ]
                 all_Bits_sorted = [all_Bits_sorted[item] for item in remain_index]
                 all_bipartitions_sorted = [all_bipartitions_sorted[item] for item in remain_index]
-                tbe_list_sorted = [tbe_list_sorted[item] for item in remain_index]
+                transfer_support_list_sorted = [transfer_support_list_sorted[item] for item in remain_index]
         else:
-            if self.all_TBE_dict is None:
-                tbe_list= unnormalized_TBE(all_bipartitions, self)
+            if self.all_transfer_support_dict is None:
+                transfer_support_list= unnormalized_transfer_support(all_bipartitions, self)
             else:
-                normalized_tbe_list = np.array(list(self.all_TBE_dict.values()))
-                tmp = 1 - normalized_tbe_list
+                normalized_transfer_support_list = np.array(list(self.all_transfer_support_dict.values()))
+                tmp = 1 - normalized_transfer_support_list
                 refinfos = _create_refinfo(all_bipartitions, self.n_taxa)
                 normalizing_constants = np.array([refinfos[bipar_int][1] - 1 for bipar_int in all_edges])
-                tbe_list = tmp * normalizing_constants
+                transfer_support_list = tmp * normalizing_constants
 
-            sort_index = np.argsort(tbe_list) # low to high
+            sort_index = np.argsort(transfer_support_list) # low to high
             all_Bits_sorted = [all_Bits[item] for item in sort_index]
             all_bipartitions_sorted =  [all_bipartitions[item] for item in sort_index]
-            tbe_list_sorted = list(tbe_list[sort_index])
+            transfer_support_list_sorted = list(transfer_support_list[sort_index])
             while len(all_Bits_sorted) > 0:
                 bipar_bits = all_Bits_sorted.pop(0)
-                TS = tbe_list_sorted.pop(0)
+                TS = transfer_support_list_sorted.pop(0)
                 bipartition = all_bipartitions_sorted.pop(0)
                 encoding_TS.append(TS)
                 encoding_bipartitions.append(bipartition)
@@ -1604,12 +1606,12 @@ class TreeList_with_support(dendropy.TreeList):
                 remain_index = [i for i in range(len(all_Bits_sorted)) if _compatible(all_Bits_sorted[i], bipar_bits) ]
                 all_Bits_sorted = [all_Bits_sorted[item] for item in remain_index]
                 all_bipartitions_sorted = [all_bipartitions_sorted[item] for item in remain_index]
-                tbe_list_sorted = [tbe_list_sorted[item] for item in remain_index]
+                transfer_support_list_sorted = [transfer_support_list_sorted[item] for item in remain_index]
         
         encoding_bipartition_ints = [bipar.split_as_int() for bipar in encoding_bipartitions]
         greedy_tree = dendropy.Tree.from_bipartition_encoding(encoding_bipartitions, self.taxon_namespace)
         if normalization:
-            return Tree_with_support(greedy_tree, TBE_support = dict(zip( encoding_bipartition_ints, encoding_TS )))
+            return Tree_with_support(greedy_tree, transfer_support = dict(zip( encoding_bipartition_ints, encoding_TS )))
         else:
             return Tree_with_support(greedy_tree)
 
@@ -1738,18 +1740,18 @@ class TreeList_with_support(dendropy.TreeList):
     #     return qstar_tree
 
 
-def unnormalized_TBE_fp_fn(true_tree, tree2: Tree_with_support):
+def unnormalized_transfer_support_fp_fn(true_tree, tree2: Tree_with_support):
     tree1_int_bipars = [node.bipartition for node in true_tree.postorder_internal_node_iter(exclude_seed_node=True)]
     tree2_int_bipars = [node.bipartition for node in tree2.postorder_internal_node_iter(exclude_seed_node=True)]
-    fp = np.sum(unnormalized_TBE(tree2_int_bipars, [true_tree]))
-    fn = np.sum(unnormalized_TBE(tree1_int_bipars, [tree2]))
+    fp = np.sum(unnormalized_transfer_support(tree2_int_bipars, [true_tree]))
+    fn = np.sum(unnormalized_transfer_support(tree1_int_bipars, [tree2]))
     return fp, fn
 
 def STD1_fp_fn(true_tree, tree2:  Tree_with_support):
     tree1_int_bipars = [node.bipartition for node in true_tree.postorder_internal_node_iter(exclude_seed_node=True)]
     tree2_int_bipars = [node.bipartition for node in tree2.postorder_internal_node_iter(exclude_seed_node=True)]
-    fp = np.sum((1-TBE(tree2_int_bipars, [true_tree])))
-    fn = np.sum((1-TBE(tree1_int_bipars, [tree2])))
+    fp = np.sum((1-transfer_support(tree2_int_bipars, [true_tree])))
+    fn = np.sum((1-transfer_support(tree1_int_bipars, [tree2])))
     return fp, fn
 
 def unnormalized_STD_fp_fn(estimate, inputs):
@@ -1770,12 +1772,12 @@ def unnormalized_STD_fp_fn(estimate, inputs):
     """
     
     if isinstance(inputs, Tree_with_support):
-        return unnormalized_TBE_fp_fn(inputs, estimate)
+        return unnormalized_transfer_support_fp_fn(inputs, estimate)
     elif isinstance(inputs, TreeList_with_support):
         fp = 0
         fn = 0
         for i in range(len(inputs)):
-            fp_tmp, fn_tmp = unnormalized_TBE_fp_fn(inputs[i], estimate)
+            fp_tmp, fn_tmp = unnormalized_transfer_support_fp_fn(inputs[i], estimate)
             fp += fp_tmp
             fn += fn_tmp
         fn /= len(inputs)
