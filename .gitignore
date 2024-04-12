@@ -127,6 +127,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+ConsensusProj/
 
 # Spyder project settings
 .spyderproject
@@ -160,4 +161,4 @@ cython_debug/
 #.idea/
 
 
-memo.md
+memo.mdB
