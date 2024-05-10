@@ -3,6 +3,7 @@
 ## 複数のサポートを可視化する,状況を可視化するにあたってconsensusからのtaxon_nameのimport
 # 例
 import ete3
+import sys
 from ete3 import TextFace
 import PyQt5
 from bitstring import Bits
@@ -43,4 +44,24 @@ def get_support(Node,namespace,support_hashtable,pos = 0,leaf_support = True):
                 Node.add_face(textface,pos//2,position="branch-bottom")
     
     return clade_bit
+
+
+def get_support_from_NeXML(dendropy_Tree_from_NeXML,support_name):
+    if(support_name != "branch_support" and support_name != "transfer_support"):
+        print("support_name is not correct, please select 'branch_support' or 'transfer_support'")
+        sys.exit([1])
+
+    support_added = dict()
+    dendropy_Tree_from_NeXML.encode_bipartitions()
+    #あんま綺麗じゃないけど...
+    if(support_name == "branch_support"): 
+        for edge in dendropy_Tree_from_NeXML.postorder_edge_iter():
+            support_added[int(edge.bipartition)] = float(str(edge.annotations.find(name="branch_support")).strip("branch_support=").strip("'"))
+    if(support_name == "transfer_support"):
+        for edge in dendropy_Tree_from_NeXML.postorder_edge_iter():
+            support_added[int(edge.bipartition)] = float(str(edge.annotations.find(name="transfer_support")).strip("transfer_support=").strip("'"))
+
+    return support_added
+    
+    
 
