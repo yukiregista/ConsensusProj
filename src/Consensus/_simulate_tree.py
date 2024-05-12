@@ -85,7 +85,7 @@ def normalize_tree_with_lognormal(tree, height = 0.05, lognormal_mean=1, lognorm
             edge.length = edge.length * np.random.lognormal(mean=mu, sigma=scale)
     
     # reroot at one of the internal node, suppress unifications, make it unrooted
-    tt.reroot_at_node(tt.seed_node.child_nodes()[0],collapse_unrooted_basal_bifurcation=False)
-    tt.is_rooted=False
+    # tt.reroot_at_node(tt.seed_node.child_nodes()[0],collapse_unrooted_basal_bifurcation=False)
+    # tt.is_rooted=False
     return tt
     
