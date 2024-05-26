@@ -10,9 +10,34 @@ from bitstring import Bits
 import numpy as np
 from ._consensus import Tree_with_support
 
-def plot_example_func(newick_str):
-    # plot する関数
-    pass
+def plot_example_func(Tree_with_support):
+    """Conversion function for drawing Tree_with_support with ete3
+
+         Parameters
+        ----------
+        Tree_with_support: consensus.Tree_with_support
+    
+        Returns
+        -------
+        t: ete3.Tree()
+        rs: ete3.TreeStyle()
+    """
+
+    t = ete3.Tree(Tree_with_support.as_string(schema='newick',suppress_rooting=True))
+    ts=ete3.TreeStyle()
+    color = ["#006BA4", "#FF800E", "#ABABAB", "#595959",
+                 "#5F9ED1", "#C85200", "#898989", "#A2C8EC", "#FFBC79", "#CFCFCF"]
+    if Tree_with_support.branch_support is not None:
+        #print("compute branch_support")
+        _ = get_support(t,Tree_with_support.taxon_namespace,Tree_with_support.branch_support,pos = 0,leaf_support = False)
+        ts.legend.add_face(ete3.TextFace("branch_support",fgcolor=color[0]), column=0)
+    if Tree_with_support.transfer_support is not None:
+        #print("compute transfer_support")
+        _ = get_support(t,Tree_with_support.taxon_namespace,Tree_with_support.transfer_support,pos = 1,leaf_support = False)
+        ts.legend.add_face(ete3.TextFace("transfer_support",fgcolor=color[1]), column=0)
+
+    return t,ts
+    
 
 #ete3.Tree, Tree_with_support.namespace, Tree_with_support.support,  int pos, bool leaf_support
 # ete3の木クラス, Tree_with_support.namespace, supportのhash table, Nodeのどこに記述するかのposition, leaf branch にsupportを書くかどうか
