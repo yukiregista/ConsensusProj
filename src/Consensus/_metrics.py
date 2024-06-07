@@ -2,6 +2,7 @@ import sys
 
 import numpy as np
 from bitstring import Bits
+import dendropy
 
 from ._consensus import Tree_with_support, TreeList_with_support, transfer_support, unnormalized_transfer_support, _tqdist_fp_fn, _tqdist_fp_fn_trees_str
 
@@ -34,22 +35,20 @@ def SUTD_fp_fn(estimate, inputs):
 
     Returns
     -------
-    (float, float)
+    (float, float) or (numpy.ndarray, numpy.ndarray)
         False positives and False negatives.
     """
     
     if isinstance(inputs, Tree_with_support):
         return _SUTD1_fp_fn(inputs, estimate)
     elif isinstance(inputs, TreeList_with_support):
-        fp = 0
-        fn = 0
+        fp_list = []
+        fn_list = []
         for i in range(len(inputs)):
             fp_tmp, fn_tmp = _SUTD1_fp_fn(inputs[i], estimate)
-            fp += fp_tmp
-            fn += fn_tmp
-        fn /= len(inputs)
-        fp /= len(inputs)
-        return fp, fn
+            fp_list.append(fp_tmp)
+            fn_list.append(fn_tmp)
+        return np.array(fp_list), np.array(fn_list)
     else:
         print("input trees have to be either Tree_with_support or TreeList_with_support.")
         sys.exit(1)
@@ -66,22 +65,20 @@ def STD_fp_fn(estimate, inputs):
 
     Returns
     -------
-    (float, float)
+    (float, float)  or (numpy.ndarray, numpy.ndarray)
         False positives and False negatives.
     """
     
     if isinstance(inputs, Tree_with_support):
         return _STD1_fp_fn(inputs, estimate)
     elif isinstance(inputs, TreeList_with_support):
-        fp = 0
-        fn = 0
+        fp_list = []
+        fn_list = []
         for i in range(len(inputs)):
             fp_tmp, fn_tmp = _STD1_fp_fn(inputs[i], estimate)
-            fp += fp_tmp
-            fn += fn_tmp
-        fn /= len(inputs)
-        fp /= len(inputs)
-        return fp, fn
+            fp_list.append(fp_tmp)
+            fn_list.append(fn_tmp)
+        return np.array(fp_list), np.array(fn_list)
     else:
         print("input trees have to be either Tree_with_support or TreeList_with_support.")
         sys.exit(1)
@@ -117,3 +114,31 @@ def SQD_fp_fn(estimate, inputs, parent_dir=None):
         print("Please provide an instance of Tree_with_support or TreeList_with_support as inputs.")
         sys.exit(1)
    
+   
+def SBD_fp_fn(estimate, inputs):
+    """Compute false positives and false negatives of symmetric bipartition distance.
+    
+
+    Parameters
+    ----------
+    estimate : Tree_with_support
+        Estimates.
+    inputs : Tree_with_support or TreeList_with_support
+        Input trees to evaluate the estimate. 
+    parent_dir : str, optional
+        Path to place intermediate files, by default None (place files in the folder of execution).
+        
+    Returns
+    -------
+    (float, float) or (numpy.ndarray, numpy.ndarray)
+        False positives and False negatives respectively.
+    """
+    if isinstance(inputs, Tree_with_support):
+        fp, fn = dendropy.calculate.treecompare.false_positives_and_negatives(inputs, estimate)
+        return fp, fn
+    elif isinstance(inputs, TreeList_with_support):
+        fps = []; fns=  []
+        for tree in inputs:
+            fp, fn = dendropy.calculate.treecompare.false_positives_and_negatives(tree, estimate)
+            fps.append(fp); fns.append(fn)
+        return np.array(fps), np.array(fns)
