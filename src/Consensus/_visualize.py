@@ -90,7 +90,26 @@ def read_consensus_NeXML(NeXML_path):
     consensus.branch_support = get_support_from_NeXML(newtree,"branch_support")
     consensus.transfer_support = get_support_from_NeXML(newtree,"transfer_support")
     return consensus
-    
+
+
+def write_consensus_NeXML(Tree_with_support,NexML_path):
+    if(Tree_with_support.branch_support != None):
+        for edge in Tree_with_support.postorder_edge_iter():
+            edge.branch_support = None
+            edge.annotations.add_bound_attribute("branch_support")
+            edge.branch_support = Tree_with_support.branch_support[int(edge.bipartition)]
+
+    if(Tree_with_support.transfer_support != None):
+        for edge in Tree_with_support.postorder_edge_iter():
+            edge.transfer_support = None
+            edge.annotations.add_bound_attribute("transfer_support")
+            edge.transfer_support = Tree_with_support.transfer_support[int(edge.bipartition)]
+
+    Tree_with_support.write(
+        path= NexML_path,
+        schema='nexml',
+        ignore_unrecognized_keyword_arguments=False,
+        )
 
 def get_support_from_NeXML(dendropy_Tree_from_NeXML,support_name):
     if(support_name != "branch_support" and support_name != "transfer_support"):
