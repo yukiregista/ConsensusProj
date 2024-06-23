@@ -149,6 +149,19 @@ class GreedyConsensusBase():
     def remove(self, branch_index, *args, **kwargs):
         return NotImplementedError()
 
+
+### 27-reorganize
+
+
+class STDGreedyPrune(GreedyConsensusBase):
+    pass
+
+class SUTDGreedyPrune(GreedyConsensusBase):
+    pass
+
+class SQDGreedyPRune(GreedyConsensusBase):
+    pass
+
 class STDGreedyConsensus(GreedyConsensusBase):
     
     # def _CreateCompatibilityGraph(self):
