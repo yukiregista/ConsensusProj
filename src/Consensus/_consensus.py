@@ -492,7 +492,7 @@ class Tree_with_support(dendropy.Tree):
         # returns how resolved tree is w.r.t. #internal branches
         return _quartet_resolution(self)
 
-    def STD_greedy_pruning(self, treelist, normalized=True):
+    def STD_greedy_pruning(self, treelist, normalized=True,time_flag = False):
         """Apply greedy pruning algorithm w.r.t. STD loss.
 
         Parameters
@@ -508,8 +508,18 @@ class Tree_with_support(dendropy.Tree):
             Consensus tree after applying greedy pruning
         """
         self_copy = self.clone(depth=1)
+        if(time_flag == True):
+            start = time.process_time()
         srp = std_risk_prune(self_copy, treelist, normalized)
+        if(time_flag == True):
+            fin_first_calc = time.process_time()
         srp.greedy_pruning()
+        if(time_flag == True):
+            fin_pruning = time.process_time()
+            print("TIME_first_calc:　"+'{:.2f}'.format((fin_first_calc-start)))
+            print("TIME_pruning:　"+'{:.2f}'.format((fin_pruning-fin_first_calc)))
+            print("TIME_all:　"+'{:.2f}'.format((fin_pruning-start)))
+        
         return srp.current_tree
     
     def SQD_greedy_pruning(self, treelist, parent_dir=None):
@@ -950,6 +960,7 @@ class std_risk_prune:
     
 
     def greedy_pruning(self):
+        count = 0
         while True:
             bipartition_ints = list(self.transfer_support.keys())
             print("current risk:", self.fp + self.fn)
@@ -958,10 +969,12 @@ class std_risk_prune:
             max_risk_reduction_index = np.argmax(risk_reductions)
             if risk_reductions[max_risk_reduction_index] <= 0:
                 # risk reduction does not happen, so break
+                print("TIME_iterate_count:",count)
                 break
             # edge with max risk reduction will be removed.
             prune_bipar = bipartition_ints[max_risk_reduction_index]
             self.prune(prune_bipar)
+            count +=1
 
 def _randomname(n):
    return ''.join(random.choices(string.ascii_letters + string.digits, k=n))
