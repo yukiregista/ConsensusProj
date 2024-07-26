@@ -516,9 +516,9 @@ class Tree_with_support(dendropy.Tree):
         srp.greedy_pruning()
         if(time_flag == True):
             fin_pruning = time.process_time()
-            print("TIME_first_calc:　"+'{:.2f}'.format((fin_first_calc-start)))
-            print("TIME_pruning:　"+'{:.2f}'.format((fin_pruning-fin_first_calc)))
-            print("TIME_all:　"+'{:.2f}'.format((fin_pruning-start)))
+            print("TIME_first_calc: "+'{:.2f}'.format((fin_first_calc-start)))
+            print("TIME_pruning: "+'{:.2f}'.format((fin_pruning-fin_first_calc)))
+            print("TIME_all: "+'{:.2f}'.format((fin_pruning-start)))
         
         return srp.current_tree
     
