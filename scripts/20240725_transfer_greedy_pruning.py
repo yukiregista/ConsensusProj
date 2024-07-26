@@ -17,3 +17,4 @@ input_trees = TreeList_with_support.get(path = INPUT_TREE_PATH, schema = "newick
 consensus_tree = Tree_with_support.get(path = ASTRAL_TREE_PATH, schema = "newick",taxon_namespace = input_trees.taxon_namespace )
 
 astral_std = consensus_tree.STD_greedy_pruning(input_trees, normalized=True,time_flag =True)
+

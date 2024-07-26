@@ -252,22 +252,25 @@ class STDGreedyConsensus(GreedyConsensusBase):
         # print(f"time passed : {time3-time2}", flush=True) -> probably very inefficient, no need for IncompatibilityGraph.
         
         # Create DIST in two ways...
-        time2 = time.time()
-        print("Creating DIST...", end = " ", flush=True)
+        time2 = time.process_time()
+        print("TIME_Creating_DIST:", end = " ", flush=True)
         self.DIST = self._ComputeDIST(method="simple")
-        time3 = time.time()
-        print(f"time passed : {time3-time2}", flush=True)
+        time3 = time.process_time()
+        #print(f"time passed : {time3-time2}", flush=True)
+        print('{:.2f}'.format((time3-time2)), flush=True)
         # print("DIST2...")
         # self.DIST2 = self._ComputeDIST(method="efficient")
         # print(np.sum((self.DIST - self.DIST2)**2))
-        time4 = time.time()
-        print(f"time passed : {time4-time3}", flush=True)
+        #time4 = time.process_time()
+        #print(f"time passed : {time4-time3}", flush=True)
         
         # Compute Transfer Dissimilarity Cost
-        print("Creating TD...", end = " ", flush=True)
+        print("TIME_Creating_TD:", end = " ", flush=True)
         self.TD = self._ComputeTransferDissimilarityCost()
-        time5 = time.time()
-        print(f"time passed : {time5-time4}", flush=True)
+        time4 = time.process_time()
+        #print(f"time passed : {time4-time3}", flush=True)
+        print('{:.2f}'.format((time4-time3)), flush=True)
+        
         
         
         # Initialize self.MATCH and self.SECOND_MATCH
@@ -412,7 +415,9 @@ class STDGreedyConsensus(GreedyConsensusBase):
 
     def _first_greedy(self, sorted_index):
         improving = True
+        count = -1
         while improving:
+            count += 1
             improving = False
             for bipar_ind in sorted_index:
                 if self.current_tree_included[bipar_ind] == 1:
@@ -427,6 +432,7 @@ class STDGreedyConsensus(GreedyConsensusBase):
                         print("branch added")
                         improving=True
                         break
+        print("TIME_iterate_count:",count)
         
     def _risk_greedy(self, sorted_index):
         while True:
@@ -468,11 +474,15 @@ class STDGreedyConsensus(GreedyConsensusBase):
                 sorted_index = [mask[item] for item in sorted_index]
             else:
                 sorted_index = np.argsort(self.BipartitionCounts)[::-1]
-               
+
+            time6 = time.process_time()
             if method == "first":
                 self._first_greedy(sorted_index)
             if method == "most":
                 self._risk_greedy(sorted_index)
+            time7 = time.process_time()
+            print("TIME_add-prune:", end = " ", flush=True)
+            print('{:.2f}'.format((time7-time6)), flush=True)
             
         
     def return_current_tree(self):
