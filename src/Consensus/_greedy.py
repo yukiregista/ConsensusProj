@@ -252,6 +252,7 @@ class STDGreedyConsensus(GreedyConsensusBase):
         # print(f"time passed : {time3-time2}", flush=True) -> probably very inefficient, no need for IncompatibilityGraph.
         
         # Create DIST in two ways...
+        print("TIME_number_of_independent_bipartitions: ",self.n_bipartitions)
         time2 = time.process_time()
         print("TIME_Creating_DIST:", end = " ", flush=True)
         self.DIST = self._ComputeDIST(method="simple")
