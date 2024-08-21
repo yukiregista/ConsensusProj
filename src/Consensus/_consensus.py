@@ -292,7 +292,25 @@ class Tree_with_support(dendropy.Tree):
     def __init__(self, *args, **kwargs):
         branch_support = kwargs.pop("branch_support", None)
         transfer_support = kwargs.pop("transfer_support", None)
+        original_taxon_namespace = kwargs.pop("original_taxon_namespace", None)
+        
+    
         super().__init__(*args, **kwargs)
+        
+        # if the original taxon_namespace is not passed, sort the taxon_namespace and migrate.
+        if original_taxon_namespace is None:
+            taxon_labels = [item.label for item in self.taxon_namespace]
+            taxon_labels.sort() # sort in alphabetical order.
+            new_taxon_namespace = dendropy.TaxonNamespace(taxon_labels) # new taxonnamespaces that is sorted.
+            self.migrate_taxon_namespace(new_taxon_namespace)
+        
+        ###
+        '''
+        Functions to sort taxon_namespace and migrate.
+        Note: C implementation uses strcmp() to compare. Same behaviour should be implemented here.ps
+        '''
+        ###
+        
         self.branch_support = branch_support
         self.transfer_support = transfer_support
         self.n_taxa = len(self.taxon_namespace)
@@ -569,7 +587,8 @@ class Tree_with_support(dendropy.Tree):
         tree = dendropy.Tree.get(**kwargs)
         branch_support = kwargs.pop("branch_support", None)
         transfer_support = kwargs.pop("transfer_support", None)
-        return cls(tree, branch_support = branch_support, transfer_support = transfer_support)
+        taxon_namespace = kwargs.pop("taxon_namespace", None) # check if taxon_namespace is passed
+        return cls(tree, branch_support = branch_support, transfer_support = transfer_support, original_taxon_namespace = taxon_namespace)
 
 
 def _create_refinfo(bipartitions, n_taxa):
@@ -1139,9 +1158,17 @@ class TreeList_with_support(dendropy.TreeList):
         self.all_transfer_support_dict =  kwargs.pop("all_transfer_support_dict", None)
         if len(args) ==  1 and isinstance(args[0], dendropy.TreeList):
             # just reference it
+            original_taxon_namespace = kwargs.pop("original_taxon_namespace", None)
             self.__dict__.update(args[0].__dict__)
         else:
+            original_taxon_namespace = kwargs.pop("original_taxon_namespace", None)
             super().__init__(*args, **kwargs)
+            # if the original taxon_namespace is not passed, sort the taxon_namespace and migrate.
+        if original_taxon_namespace is None:
+            taxon_labels = [item.label for item in self.taxon_namespace]
+            taxon_labels.sort() # sort in alphabetical order.
+            new_taxon_namespace = dendropy.TaxonNamespace(taxon_labels) # new taxonnamespaces that is sorted.
+            self.migrate_taxon_namespace(new_taxon_namespace)
         trees_init = True
         if len(args) == 1:
             try:
@@ -1172,7 +1199,8 @@ class TreeList_with_support(dendropy.TreeList):
         """
         edge_dict = kwargs.pop("edge_dict", None)
         tree = dendropy.TreeList.get(**kwargs)
-        return cls(tree, edge_dict = edge_dict)
+        taxon_namespace = kwargs.pop("taxon_namespace", None)
+        return cls(tree, edge_dict = edge_dict, original_taxon_namespace = taxon_namespace)
 
 
 

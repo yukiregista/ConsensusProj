@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 name = "Consensus"
 version = "0.0.2"
 authors = [
-  { name="Yuki Takazawa", email="yuki-takazawa@g.ecc.u-tokyo.ac.jp" },
+  { name="Yuki Takazawa", email="yuki-takazawa at g.ecc.u-tokyo.ac.jp" },
 ]
 description = "Implementation of consensus methods."
 readme = "README.md"
