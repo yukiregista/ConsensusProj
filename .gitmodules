@@ -1,0 +1,3 @@
+[submodule "src/booster"]
+	path = src/booster
+	url = git@github.com:yukiregista/booster.git
