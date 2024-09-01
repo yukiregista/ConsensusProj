@@ -29,6 +29,12 @@ class BipartitionDict(ctypes.Structure):
     ]
 
 
+class BipartitionDictArray(ctypes.Structure):
+    _fields_ = [
+        ("bdict", ctypes.POINTER(BipartitionDict)),
+        ("num_trees", ctypes.c_int)
+    ]
+
 def int_to_reversed_bin(x, bit_length):
     '''
     This conversion is inefficient!: 
@@ -48,6 +54,45 @@ def to_bitvector(bipartition: ctypes.POINTER(ctypes.c_uint), n_tips: int=100, bi
     concatenated_bits = ''.join(binary_strings)
     return Bits(bin=concatenated_bits[::-1])
 
+
+def test_call_booster(K=20):
+    # example trees
+    print(files('Consensus.example_data').joinpath('sample1.nex'))
+    tree1 = Consensus.TreeList_with_support.get(path = files('Consensus.example_data').joinpath('GTRgamma_edit.nex'), schema="nexus")
+    tree2 = Consensus.Tree_with_support.get(path = files('Consensus.example_data').joinpath('astral_GTRgamma.tre'), schema="newick",
+                                            taxon_namespace = tree1.taxon_namespace)
+    num_trees = len(tree1)
+    
+    ## For using booster
+    tree1_str = tree1.as_string("newick", suppress_rooting=True)
+    tree1_lines = tree1_str.split("\n")
+    tree2_str = tree2.as_string("newick", suppress_rooting=True)
+    
+    booster_lib = Consensus.load_booster()
+    booster_lib.tbe_match.restype = ctypes.c_void_p # To get pointer accurately
+    booster_lib.print_bdict.argtypes = ctypes.c_void_p,
+    booster_lib.after_tbe_match.argtypes = ctypes.c_void_p,
+    
+    
+    tbe_match_args = ['program_name', '-k', f'{K}']
+    argc = len(tbe_match_args)
+    argv_ctypes = (ctypes.POINTER(ctypes.c_char) * argc)()
+    for i, str in enumerate(tbe_match_args):
+        enc_str = str.encode('utf-8')
+        argv_ctypes[i] = ctypes.create_string_buffer(enc_str)  
+    
+    tree1_ctypes = (ctypes.POINTER(ctypes.c_char) * num_trees)()
+    tree2_ctypes = ctypes.create_string_buffer(tree2_str.encode('utf-8'))
+    for i in range(num_trees):
+        buffer = ctypes.create_string_buffer(tree1_lines[i].encode('utf-8'))
+        tree1_ctypes[i] = buffer
+    
+    num_trees_ctypes = ctypes.c_int(num_trees)
+    
+    try:
+        res = booster_lib.tbe_match(argc, argv_ctypes, tree1_ctypes ,tree2_ctypes, num_trees_ctypes)
+    finally:
+        booster_lib.after_tbe_match(res)
 
 def test_first_K_match(K=20):
     
