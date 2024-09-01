@@ -25,7 +25,7 @@ class BipartitionDict(ctypes.Structure):
         ("bipartition_size", ctypes.c_size_t),
         ("num_matches", ctypes.c_int),
         ("n_taxa", ctypes.c_int),
-        ("bits_uint", ctypes.c_int)
+        ("uint_bits", ctypes.c_int)
     ]
 
 
@@ -82,7 +82,44 @@ def test_first_K_match(K=20):
     
     try:
         res = booster_lib.tbe_match(argc, argv_ctypes, tree1_ctypes ,tree2_ctypes)
+        print(booster_lib.tbe_match.restype)
+        import time
+        time.sleep(5)
+        print(hex(res))
+        booster_lib.after_tbe_match(res)
+        print("here")
+        print("loading")
+        print(tbe_match_args)
+        argc = len(tbe_match_args)
+        argv_ctypes = (ctypes.POINTER(ctypes.c_char) * argc)()
+        for i, str in enumerate(tbe_match_args):
+            enc_str = str.encode('utf-8')
+            argv_ctypes[i] = ctypes.create_string_buffer(enc_str)
+        
+        
+        tree1_ctypes = ctypes.create_string_buffer(tree1_str.encode('utf-8'))
+        tree2_ctypes = (ctypes.POINTER(ctypes.c_char) * 1)()
+        tree2_ctypes[0] = ctypes.create_string_buffer(tree2_str.encode('utf-8'))
+        
+        print(argc,argv_ctypes, tree1_ctypes, tree2_ctypes)
+        print(booster_lib.tbe_match.restype)
+        res = booster_lib.tbe_match(argc, argv_ctypes, tree1_ctypes ,tree2_ctypes)
+        if not res:
+            raise RuntimeError("NULL pointer received from tbe_match")
+        print(hex(res))
+        import time
+        time.sleep(5)
+        # print(hex(res))
+        
+        print("here")
+        #0x14eb7c0e0<- 1(C) 0x14eb7c0e0
+        #0x1050e7f50 <- 2
+        #EXC_BAD_ACCESS (code=1, address=0x50e7f50)
+        
         bipartition_dict = ctypes.cast(res, ctypes.POINTER(BipartitionDict)).contents
+        print("there")
+        
+        print(bipartition_dict.num_entries)
         
         ## Check if set of internal bipartitions are the same.
         tree1_internals = [bipar.split_as_bitstring() for bipar in tree1.bipartition_encoding if not bipar.is_trivial()]
@@ -115,10 +152,11 @@ def test_first_K_match(K=20):
         # tree2.plot_Bio()
         
         # compute by Python
-        tree2_bipars = [bipar.split_as_bitstring() for bipar in tree2.bipartition_encoding]
+        tree2_bipars = [bipar.split_as_bitstring() for bipar in tree2.bipartition_encoding] #list of strings
         for internal, internal_orig in zip(tree1_internals_C, tree1_internals_C2):
-            all_hamming_dist = np.array([Consensus._greedy._MinHammingDist(Bits(bin=internal), Bits(bin=item)) for item in tree2_bipars])
+            all_hamming_dist = np.array([Consensus._greedy._MinHammingDist(Bits(bin=internal), Bits(bin=item)) for item in tree2_bipars]) #bitstring.Bits
             order = np.argsort(all_hamming_dist)
+            
             before_K = order[all_hamming_dist[order] < all_hamming_dist[order][K]]
             Kplus = order[all_hamming_dist[order] <= all_hamming_dist[order][K-1]]
             
