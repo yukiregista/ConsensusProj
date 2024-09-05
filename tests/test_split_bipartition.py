@@ -37,6 +37,13 @@ class BipartitionDict(ctypes.Structure):
     ]
 
 
+class BipartitionDictArray(ctypes.Structure):
+    _fields_ = [
+        ("bdict", ctypes.POINTER(BipartitionDict)),
+        ("num_trees", ctypes.c_int)
+    ]
+
+
 def int_to_reversed_bin(x, bit_length):
     '''
     This conversion is inefficient!: 

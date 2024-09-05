@@ -21,7 +21,7 @@ dependencies = ["numpy", "pandas", "scipy", "matplotlib", "dendropy", "bitstring
 
 [project.optional-dependencies]
 dev = [
-    "pytest",
+    "pytest", "memory_profiler"
 ]
 
 [project.urls]
