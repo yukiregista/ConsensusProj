@@ -162,3 +162,7 @@ cython_debug/
 
 
 memo.mdB
+
+
+# VScode
+.vscode/
