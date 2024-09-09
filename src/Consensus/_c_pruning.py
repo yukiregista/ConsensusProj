@@ -8,6 +8,8 @@ from bitstring import Bits
 import threading, psutil, os
 from ._dev_utils import monitor_cpu
 
+import gc
+import tracemalloc
 
     # # we hope! that inittree_file and inputtrees_file have the same taxons
     # inittree = dendropy.Tree.get(path = inittree_file, schema="newick")
@@ -219,6 +221,7 @@ def report_memory(process, print_string):
     print(f"{print_string}: {rss_memory / (1024 ** 3):.2f} GB")
 
 def c_prune(inittree_file: str, inputtrees_file: str, K=30):
+    tracemalloc.start()
     # event = threading.Event()
     # initial_time = time.time()
     # m = threading.Thread(target=monitor_cpu,args=((initial_time,event)))
@@ -240,7 +243,13 @@ def c_prune(inittree_file: str, inputtrees_file: str, K=30):
     final_tree = None
     try:
         # the other way: tbe_match
+        snapshot = tracemalloc.take_snapshot()
+        top_stats = snapshot.statistics('lineno')
+        print("[ Top 10 ]")
+        for stat in top_stats[:10]:
+            print(stat)
         
+        report_memory(process, "memory used before tbe_match")
         start = time.perf_counter()
         res_ptr = booster_lib.tbe_match(*args)
         middle = time.perf_counter()
@@ -248,6 +257,12 @@ def c_prune(inittree_file: str, inputtrees_file: str, K=30):
         first_done += 1
         
         report_memory(process, "memory used after tbe_match")
+        
+        snapshot = tracemalloc.take_snapshot()
+        top_stats = snapshot.statistics('lineno')
+        print("[ Top 10 ]")
+        for stat in top_stats[:10]:
+            print(stat)
         
         # the normal way: tbe_support
         res_ptr2 = booster_lib.tbe_support(*args2)
@@ -295,7 +310,13 @@ def c_prune(inittree_file: str, inputtrees_file: str, K=30):
         print(f"Final Tree Creation time: {final_tree_end - init_load_end}")
         
         report_memory(process, "memory used after everything")
-            
+        
+        snapshot = tracemalloc.take_snapshot()
+        top_stats = snapshot.statistics('lineno')
+        print("[ Top 10 ]")
+        for stat in top_stats[:10]:
+            print(stat)
+        
         
     finally:
         booster_lib.after_tbe_match(res_ptr)
@@ -306,6 +327,12 @@ def c_prune(inittree_file: str, inputtrees_file: str, K=30):
         print(mem)
         
         report_memory(process, "memory used after freeing C memory")
+        
+        snapshot = tracemalloc.take_snapshot()
+        top_stats = snapshot.statistics('lineno')
+        print("[ Top 10 ]")
+        for stat in top_stats[:10]:
+            print(stat)
         
         
         # event.set()
