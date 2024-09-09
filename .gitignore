@@ -167,3 +167,13 @@ memo.mdB
 
 ## VSCode
 .vscode/
+
+
+## data
+data/
+
+
+## slurm/valgrind/massif
+slurm*
+massif*
+valgrind*
