@@ -164,5 +164,15 @@ cython_debug/
 memo.mdB
 
 
-# VScode
+## VSCode
 .vscode/
+
+
+## data
+data/
+
+
+## slurm/valgrind/massif
+slurm*
+massif*
+valgrind*

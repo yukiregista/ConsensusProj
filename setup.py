@@ -3,7 +3,7 @@ from setuptools.command.build_ext import build_ext
 import subprocess
 import os
 
-os.environ["CC"] = "gcc-14"
+os.environ["CC"] = "gcc"
 
 VERSION = "1.0.0"
 
@@ -30,6 +30,7 @@ sources = [
 
 # Define the compilation flags
 compile_flags = ["-Wall", "-O0", "-g", "-fopenmp", "-fsanitize=leak", "-fPIC", "-DDEBUG", f'-DVERSION="{VERSION}"']
+compile_flags = ["-Wall", "-O0", "-g", "-fopenmp", "-fsanitize=leak", "-fPIC", "-DNDEBUG", f'-DVERSION="{VERSION}"']
 compile_flags = ["-Wall", "-O3", "-fopenmp", "-fPIC", "-DNDEBUG", f'-DVERSION="{VERSION}"']
 link_flags = ["-lm", "-fopenmp"]
 
