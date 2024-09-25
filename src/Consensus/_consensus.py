@@ -298,7 +298,7 @@ class Tree_with_support(dendropy.Tree):
         super().__init__(*args, **kwargs)
         
         # if the original taxon_namespace is not passed, sort the taxon_namespace and migrate.
-        if original_taxon_namespace is None:
+        if original_taxon_namespace == "not provided":
             taxon_labels = [item.label for item in self.taxon_namespace]
             taxon_labels.sort() # sort in alphabetical order.
             new_taxon_namespace = dendropy.TaxonNamespace(taxon_labels) # new taxonnamespaces that is sorted.
@@ -608,8 +608,8 @@ class Tree_with_support(dendropy.Tree):
         tree = dendropy.Tree.get(**kwargs)
         branch_support = kwargs.pop("branch_support", None)
         transfer_support = kwargs.pop("transfer_support", None)
-        taxon_namespace = kwargs.pop("taxon_namespace", None) # check if taxon_namespace is passed
-        return cls(tree, branch_support = branch_support, transfer_support = transfer_support, original_taxon_namespace = taxon_namespace)
+        original_taxon_namespace = kwargs.get("taxon_namespace", "not provided") # check if taxon_namespace is passed
+        return cls(tree, branch_support = branch_support, transfer_support = transfer_support, original_taxon_namespace = original_taxon_namespace)
 
 
 def _create_refinfo(bipartitions, n_taxa):
