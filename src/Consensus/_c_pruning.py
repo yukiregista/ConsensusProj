@@ -90,7 +90,7 @@ def greedy_pruning(FP_loss, FN_diff, count_arr, normalized_scores, match_arr, to
         
         # For bipartitions in reverse_match[max_ind]
         for bipar in reverse_match[max_ind]:
-            which_match[bipar] += 1
+            which_match[bipar]  = which_second_match[bipar]
             if use_K[bipar]:
                 if match_arr[bipar, which_match[bipar]] == -1:
                     continue
@@ -225,7 +225,7 @@ def c_prune(inittree_file: str, inputtrees_file: str, K=30):
     # tracemalloc.start()
     # event = threading.Event()
     # initial_time = time.time()
-    # m = threading.Thread(target=monitor_cpu,args=((initial_time,event)))
+    # m = threading.ThreaTBEd(target=monitor_cpu,args=((initial_time,event)))
     # m.start() # 開始
     # Get the current process using psutil
     process = psutil.Process(os.getpid())
