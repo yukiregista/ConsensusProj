@@ -1173,6 +1173,34 @@ class TreeList_with_support(dendropy.TreeList):
         bipartition_ints = [bipar.split_as_int() for bipar in bipartitions]
         self.all_transfer_support_dict =  dict(zip(bipartition_ints, transfer_support_list))
         return None
+    
+        # def __init__(self, *args, **kwargs):
+        # branch_support = kwargs.pop("branch_support", None)
+        # transfer_support = kwargs.pop("transfer_support", None)
+        # original_taxon_namespace = kwargs.pop("original_taxon_namespace", None)
+        
+    
+        # super().__init__(*args, **kwargs)
+        
+        # # if the original taxon_namespace is not passed, sort the taxon_namespace and migrate.
+        # if original_taxon_namespace is None:
+        #     taxon_labels = [item.label for item in self.taxon_namespace]
+        #     taxon_labels.sort() # sort in alphabetical order.
+        #     new_taxon_namespace = dendropy.TaxonNamespace(taxon_labels) # new taxonnamespaces that is sorted.
+        #     self.migrate_taxon_namespace(new_taxon_namespace)
+        
+        # ###
+        # '''
+        # Functions to sort taxon_namespace and migrate.
+        # Note: C implementation uses strcmp() to compare. Same behaviour should be implemented here.ps
+        # '''
+        # ###
+        
+        # self.branch_support = branch_support
+        # self.transfer_support = transfer_support
+        # self.n_taxa = len(self.taxon_namespace)
+        # self.encode_bipartitions() #some methods (from_bipartitions etc) seem to produce a tree with bad bipartition_encoding, so renew it 
+
 
     def __init__(self, *args, **kwargs):
         edge_dict = kwargs.pop("edge_dict", None)
@@ -1220,7 +1248,7 @@ class TreeList_with_support(dendropy.TreeList):
         """
         edge_dict = kwargs.pop("edge_dict", None)
         tree = dendropy.TreeList.get(**kwargs)
-        taxon_namespace = kwargs.pop("taxon_namespace", None)
+        taxon_namespace = kwargs.get("taxon_namespace", None)
         return cls(tree, edge_dict = edge_dict, original_taxon_namespace = taxon_namespace)
 
 
