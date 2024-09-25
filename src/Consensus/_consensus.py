@@ -564,6 +564,8 @@ class Tree_with_support(dendropy.Tree):
         """
         if self.branch_support is None:
             self.compute_branch_support(treelist)
+            
+        assert(self.taxon_namespace == treelist.taxon_namespace)
         
         bipars = []; branch_support = dict(); transfer_support = dict()
         for node in self.postorder_node_iter():
@@ -571,9 +573,28 @@ class Tree_with_support(dendropy.Tree):
             if self.branch_support[splitint] > threshold:
                 bipars.append(node.bipartition)
                 branch_support[splitint] = self.branch_support[splitint]
+                if transfer_support is not None:
+                    transfer_support[splitint] = self.transfer_support[splitint]
         thresholded = Tree_with_support(dendropy.Tree.from_bipartition_encoding(bipars, self.taxon_namespace), branch_support = branch_support, transfer_support = transfer_support)
         return thresholded
          
+    def TS_prune(self, treelist, threshold=0.7):
+        if self.transfer_support is None:
+            self.compute_transfer_support(treelist)
+        
+        assert(self.taxon_namespace == treelist.taxon_namespace)
+        
+        bipars = []; branch_support = dict(); transfer_support = dict()
+        for node in self.postorder_node_iter():
+            splitint = node.bipartition.split_as_int()
+            if self.transfer_support[splitint] > threshold:
+                bipars.append(node.bipartition)
+                if branch_support is not None:
+                    branch_support[splitint] = self.branch_support[splitint]
+                transfer_support[splitint] = self.transfer_support[splitint]
+        thresholded = Tree_with_support(dendropy.Tree.from_bipartition_encoding(bipars, self.taxon_namespace), branch_support = branch_support, transfer_support = transfer_support)
+        return thresholded
+        
         
     @classmethod
     def get(cls, **kwargs):
