@@ -10,6 +10,7 @@ VERSION = "1.0.0"
 # Define the sources and the corresponding C flags
 sources = [
     "src/booster/src/hashtables_bfields.c",
+    "src/booster/src/M1M2_hashmap.c",
     "src/booster/src/tree.c",
     "src/booster/src/stats.c",
     "src/booster/src/prng.c",
@@ -29,9 +30,9 @@ sources = [
 ]
 
 # Define the compilation flags
-compile_flags = ["-Wall", "-O0", "-g", "-fopenmp", "-fsanitize=leak", "-fPIC", "-DDEBUG", f'-DVERSION="{VERSION}"']
+# compile_flags = ["-Wall", "-O0", "-g", "-fopenmp", "-fsanitize=leak", "-fPIC", "-DDEBUG", f'-DVERSION="{VERSION}"']
 compile_flags = ["-Wall", "-O0", "-g", "-fopenmp", "-fsanitize=leak", "-fPIC", "-DNDEBUG", f'-DVERSION="{VERSION}"']
-compile_flags = ["-Wall", "-O3", "-fopenmp", "-fPIC", "-DNDEBUG", f'-DVERSION="{VERSION}"']
+# compile_flags = ["-Wall", "-O3", "-fopenmp", "-fPIC", "-DNDEBUG", f'-DVERSION="{VERSION}"']
 link_flags = ["-lm", "-fopenmp"]
 
 booster_extension = Extension(
