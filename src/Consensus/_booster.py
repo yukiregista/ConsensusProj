@@ -53,6 +53,63 @@ class BipartitionSupportArray(ctypes.Structure):
     ]
 
 
+class BipartitionMatchesHash(ctypes.Structure):
+    _fields_ = [
+        ("h1", ctypes.c_uint),
+        ("h2", ctypes.c_uint),
+        ("topo_depth", ctypes.c_int),
+        ("matched_ids", ctypes.POINTER(ctypes.c_int)),
+        ("td", ctypes.POINTER(ctypes.c_int))
+    ]
+
+class BipartitionDictHash(ctypes.Structure):
+    _fields_ = [
+        ("entries", ctypes.POINTER(ctypes.POINTER(BipartitionMatchesHash))),
+        ("num_entries", ctypes.c_int),
+        ("num_matches", ctypes.c_int),
+        ("n_taxa", ctypes.c_int),
+    ]
+    
+
+class BipartitionSupportHash(ctypes.Structure):
+    _fields_ = [
+        ("h1", ctypes.c_uint),
+        ("h2", ctypes.c_uint),
+        ("is_external", ctypes.c_bool),
+        ("support", ctypes.c_double),
+        ("node_id", ctypes.c_int)
+    ]
+    
+class BipartitionSupportArrayHash(ctypes.Structure):
+    _fields_ = [
+        ("num_entries", ctypes.c_int),
+        ("n_taxa", ctypes.c_int),
+        ("bipartition_supoprts", ctypes.POINTER(ctypes.POINTER(BipartitionSupportHash))),
+    ]
+    
+    
+class TbeSupportMatchResult(ctypes.Structure):
+    _fields_ = [
+        ("bdict", ctypes.POINTER(BipartitionDictHash)),
+        ("bsupp_arr", ctypes.POINTER(BipartitionSupportArrayHash))
+    ]
+    
+    
+class transferDistance(ctypes.Structure):
+    _fields_ = [
+        ("dist", ctypes.c_int),
+        ("h1", ctypes.c_uint),
+        ("h2", ctypes.c_uint)
+    ]
+
+class transferDistanceAll(ctypes.Structure):
+    _fields_ = [
+        ("td", ctypes.POINTER(ctypes.POINTER(transferDistance))),
+        ("n_elements", ctypes.c_int),
+        ("node_h1", ctypes.c_uint),
+        ("node_h2", ctypes.c_uint),
+        ("topo_depth", ctypes.c_int)
+    ]
 
 def load_booster() -> ctypes.CDLL:
     spec = importlib.util.find_spec("booster")
@@ -85,7 +142,7 @@ def to_bitvector(bipartition: ctypes.POINTER(ctypes.c_uint), n_tips: int=100, bi
     return Bits(bin=concatenated_bits[::-1])
 
 
-def prepare_tbe_match(booster_lib: ctypes.CDLL):
+def prepare_tbe_match(booster_lib: ctypes.CDLL) -> ctypes.CDLL:
     """Prepare `tbe_match` and `after_tbe_match`
 
     Args:
@@ -95,7 +152,7 @@ def prepare_tbe_match(booster_lib: ctypes.CDLL):
     booster_lib.after_tbe_match.argtypes = ctypes.c_void_p,
     return booster_lib
 
-def prepare_tbe_support(booster_lib: ctypes.CDLL):
+def prepare_tbe_support(booster_lib: ctypes.CDLL) -> ctypes.CDLL:
     """Prepare `tbe_match` and `after_tbe_match`
 
     Args:
@@ -103,6 +160,30 @@ def prepare_tbe_support(booster_lib: ctypes.CDLL):
     """
     booster_lib.tbe_support.restype = ctypes.c_void_p # To get pointer accurately
     booster_lib.after_tbe_support.argtypes = ctypes.c_void_p,
+    return booster_lib
+
+
+def prepare_tbe_support_and_match(booster_lib: ctypes.CDLL) -> ctypes.CDLL:
+    booster_lib.tbe_support_and_match.restype = ctypes.POINTER(TbeSupportMatchResult)
+
+    # Specify the argument types of the function
+    booster_lib.tbe_support_and_match.argtypes = [
+        ctypes.c_char_p,                    # char* nh_initial_tree
+        ctypes.POINTER(ctypes.c_char_p),    # char** nh_input_trees
+        ctypes.c_int,                       # int num_trees
+        ctypes.c_int                        # int k
+    ]
+    return booster_lib
+
+
+def prepare_recompute(booster_lib: ctypes.CDLL):
+    booster_lib.recompute.restype = ctypes.POINTER(transferDistanceAll)
+
+    # Specify the argument types of the function
+    booster_lib.recompute.argtypes = [
+        ctypes.c_uint,                       # unsigned int h1
+        ctypes.c_uint                        # unsigned int h2
+    ]
     return booster_lib
 
 
@@ -139,6 +220,16 @@ def prepare_tbe_support_args(reftree_str:str, alttrees_str: str):
     
     num_trees_ctypes = ctypes.c_int(num_trees)    
     return tree1_ctypes, tree2_ctypes, num_trees_ctypes
+
+
+
+def prepare_tbe_support_and_match_args(reftree_str: str, input_trees_str: str, K: int):
+    reference_tree_cstr = ctypes.c_char_p(reftree_str.encode('utf-8'))
+    input_trees_lines = input_trees_str.split("\n")
+    input_trees_lines = [item for item in input_trees_lines if len(item)>0] # ignore empty line.
+    input_trees_array = (ctypes.c_char_p * len(input_trees_lines))(*[line.encode('utf-8') for line in input_trees_lines])
+    num_trees = len(input_trees_lines)
+    return reference_tree_cstr, input_trees_array, num_trees, K
 
 
 def _generate_bitmask(bits: int)-> int:
