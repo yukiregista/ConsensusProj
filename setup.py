@@ -10,6 +10,7 @@ VERSION = "1.0.0"
 # Define the sources and the corresponding C flags
 sources = [
     "src/booster/src/hashtables_bfields.c",
+    "src/booster/src/transfer_distance.c",
     "src/booster/src/M1M2_hashmap.c",
     "src/booster/src/tree.c",
     "src/booster/src/stats.c",
@@ -26,7 +27,7 @@ sources = [
     "src/booster/src/kludge.c",
     "src/booster/src/node_stack.c",
     "src/booster/src/split.c",
-    "src/booster/src/booster.c",  # Your main file
+    "src/booster/src/booster.c",  # main file
 ]
 
 # Define the compilation flags
