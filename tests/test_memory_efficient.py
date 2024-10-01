@@ -13,7 +13,8 @@ class BipartitionMatchesHash(ctypes.Structure):
         ("h2", ctypes.c_uint),
         ("topo_depth", ctypes.c_int),
         ("matched_ids", ctypes.POINTER(ctypes.c_int)),
-        ("td", ctypes.POINTER(ctypes.c_int))
+        ("td", ctypes.POINTER(ctypes.c_int)),
+        ("input_count", ctypes.c_int)
     ]
 
 class BipartitionDictHash(ctypes.Structure):
@@ -31,14 +32,16 @@ class BipartitionSupportHash(ctypes.Structure):
         ("h2", ctypes.c_uint),
         ("is_external", ctypes.c_bool),
         ("support", ctypes.c_double),
-        ("node_id", ctypes.c_int)
+        ("node_id", ctypes.c_int),
+        ("bipartition", ctypes.POINTER(ctypes.c_uint))
     ]
     
 class BipartitionSupportArrayHash(ctypes.Structure):
     _fields_ = [
         ("num_entries", ctypes.c_int),
         ("n_taxa", ctypes.c_int),
-        ("bipartition_supoprts", ctypes.POINTER(ctypes.POINTER(BipartitionSupportHash))),
+        ("bipartition_supports", ctypes.POINTER(ctypes.POINTER(BipartitionSupportHash))),
+        ("num_alt_trees", ctypes.c_int)
     ]
     
     
@@ -53,7 +56,8 @@ class transferDistance(ctypes.Structure):
     _fields_ = [
         ("dist", ctypes.c_int),
         ("h1", ctypes.c_uint),
-        ("h2", ctypes.c_uint)
+        ("h2", ctypes.c_uint),
+        ("node_id", ctypes.c_int)
     ]
 
 class transferDistanceAll(ctypes.Structure):
@@ -112,7 +116,7 @@ def test_call_booster_tbe_support_and_match(K=20):
     num_entries = bsupp_arr.num_entries
     C_support_list = []
     for i in range(num_entries):
-        bipartition_support = bsupp_arr.bipartition_supoprts[i].contents
+        bipartition_support = bsupp_arr.bipartition_supports[i].contents
         support = bipartition_support.support
         if not bipartition_support.is_external:
             C_support_list.append(support)
@@ -154,6 +158,9 @@ def test_recomputation(K=10): # example trees
     input_trees = Consensus.TreeList_with_support.get(path = files('Consensus.example_data').joinpath('boot10.tre'), schema="newick")
     reference_tree = Consensus.Tree_with_support.get(path = files('Consensus.example_data').joinpath('astral_GTRgamma.tre'), schema="newick",
                                             taxon_namespace = input_trees.taxon_namespace)
+    
+    reference_tree.STD_greedy_pruning(input_trees)
+    
     num_trees = len(input_trees)
     
     ## For using booster
@@ -192,10 +199,13 @@ def test_recomputation(K=10): # example trees
     num_entries = bsupp_arr.num_entries
     C_support_list = []
     for i in range(num_entries):
-        bipartition_support = bsupp_arr.bipartition_supoprts[i].contents
+        bipartition_support = bsupp_arr.bipartition_supports[i].contents
         support = bipartition_support.support
         if not bipartition_support.is_external:
             C_support_list.append(support)
+    
+    print(np.sort(support_list))
+    print(np.sort(C_support_list))
     
     assert( np.all(np.sort(support_list) == np.sort(C_support_list)) ) # the sets of support values are the same
     
@@ -207,11 +217,13 @@ def test_recomputation(K=10): # example trees
     print("Number of taxa", bdict.n_taxa)
     h1_list = []
     h2_list = []
+    input_count_list = []
     for i in range(bdict.num_entries):
         h1 = bdict.entries[i].contents.h1
         h1_list.append(h1)
         h2 = bdict.entries[i].contents.h2
         h2_list.append(h2)
+        input_count_list.append(bdict.entries[i].contents.input_count)
         topo_depth = bdict.entries[i].contents.topo_depth
         for j in range(bdict.num_matches):
             td = bdict.entries[i].contents.td[j]
@@ -220,6 +232,7 @@ def test_recomputation(K=10): # example trees
     
     print(set(h1_list), len(set(h1_list)))
     print(set(h2_list), len(set(h1_list)))
+    print(set(input_count_list))
     
     
     # recomputation for some branches
@@ -253,3 +266,7 @@ def test_recomputation(K=10): # example trees
     
     print("freed memory")
     
+    
+def test_c_prune(K=20):
+    #Consensus.c_prune(inittree_file=files('Consensus.example_data').joinpath('astral_GTRgamma.tre'), inputtrees_file=files('Consensus.example_data').joinpath('boot10.tre'), K=K)
+    Consensus.c_prune(inittree_file=files('Consensus.example_data').joinpath('astral_GTRgamma.tre'), inputtrees_file=files('Consensus.example_data').joinpath('boot10.tre'), K=2)

@@ -4,6 +4,7 @@ import os
 import ctypes
 
 from bitstring import Bits
+import numpy as np
 
 class Split(ctypes.Structure):
     _fields_ = [("data", ctypes.POINTER(ctypes.c_uint))]
@@ -59,7 +60,8 @@ class BipartitionMatchesHash(ctypes.Structure):
         ("h2", ctypes.c_uint),
         ("topo_depth", ctypes.c_int),
         ("matched_ids", ctypes.POINTER(ctypes.c_int)),
-        ("td", ctypes.POINTER(ctypes.c_int))
+        ("td", ctypes.POINTER(ctypes.c_int)),
+        ("input_count", ctypes.c_int)
     ]
 
 class BipartitionDictHash(ctypes.Structure):
@@ -77,14 +79,16 @@ class BipartitionSupportHash(ctypes.Structure):
         ("h2", ctypes.c_uint),
         ("is_external", ctypes.c_bool),
         ("support", ctypes.c_double),
-        ("node_id", ctypes.c_int)
+        ("node_id", ctypes.c_int),
+        ("bipartition", ctypes.POINTER(ctypes.c_uint))
     ]
     
 class BipartitionSupportArrayHash(ctypes.Structure):
     _fields_ = [
         ("num_entries", ctypes.c_int),
         ("n_taxa", ctypes.c_int),
-        ("bipartition_supoprts", ctypes.POINTER(ctypes.POINTER(BipartitionSupportHash))),
+        ("bipartition_supports", ctypes.POINTER(ctypes.POINTER(BipartitionSupportHash))),
+        ("num_alt_trees", ctypes.c_int)
     ]
     
     
@@ -99,7 +103,8 @@ class transferDistance(ctypes.Structure):
     _fields_ = [
         ("dist", ctypes.c_int),
         ("h1", ctypes.c_uint),
-        ("h2", ctypes.c_uint)
+        ("h2", ctypes.c_uint),
+        ("node_id", ctypes.c_int)
     ]
 
 class transferDistanceAll(ctypes.Structure):
@@ -110,6 +115,21 @@ class transferDistanceAll(ctypes.Structure):
         ("node_h2", ctypes.c_uint),
         ("topo_depth", ctypes.c_int)
     ]
+
+
+class OrganizedTransferResult():
+    def __init__(self, TS: list, REF_BIPAR_ID_to_location: dict, H1: list, H2: list, S: np.ndarray, M: np.ndarray, C: list, num_alt_trees: int):
+        self.TS = TS # Tranfer Supports
+        # Dictionary containing bipar_id of reference tree's internal bipartition as keys, and its location in the TS array as values
+        self.REF_BIPAR_ID_to_location = REF_BIPAR_ID_to_location
+        self.H1 = H1 # stores hash h1 of input bipartitions
+        self.H2 = H2 # stores hash h2 of input bipartitions
+        self.S = S # stores transfer distance (either scaled or unscaled) to the first K best matches: size m \times K.
+        self.M = M # stores first K best matched IDs : size m \times K.
+        self.C = C # stores the number of appearances for each bipartition in the input trees
+        self.num_alt_trees = num_alt_trees # Number of alt trees
+        
+
 
 def load_booster() -> ctypes.CDLL:
     spec = importlib.util.find_spec("booster")
@@ -186,6 +206,14 @@ def prepare_recompute(booster_lib: ctypes.CDLL):
     ]
     return booster_lib
 
+def prepare_prune_and_return_newick(booster_lib: ctypes.CDLL):
+    booster_lib.prune_and_return_newick.argtypes = [
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.c_int
+    ]
+    return booster_lib
+
+
 
 def prepare_tbe_match_args(reftrees_str:str, alttree_str: str, K: int):
     tbe_match_args = ['program_name', '-k', f'{K}']
@@ -232,8 +260,65 @@ def prepare_tbe_support_and_match_args(reftree_str: str, input_trees_str: str, K
     return reference_tree_cstr, input_trees_array, num_trees, K
 
 
+def prepare_prune_and_return_newick_args(node_ids: list[int]):
+    n_nodes = len(node_ids)
+    c_array = (ctypes.c_int * n_nodes)(*node_ids)
+    return c_array, n_nodes
+
+
 def _generate_bitmask(bits: int)-> int:
     return (1<<bits) - 1
+
+def organize_support_and_match(res_ptr) -> OrganizedTransferResult:
+    bdict = res_ptr.contents.bdict.contents
+    bsupp_arr = res_ptr.contents.bsupp_arr.contents
+    num_trees = bsupp_arr.num_alt_trees
+    
+    # Create TS, H1_REF, H2_REF array. 
+    TS = []; REF_BIPAR_IDS=[]; REF_BIPAR_ID_to_location = dict()
+    count = 0
+    for i in range(bsupp_arr.num_entries):
+        entry = bsupp_arr.bipartition_supports[i].contents
+        if not entry.is_external:
+            TS.append(entry.support)
+            REF_BIPAR_IDS.append(entry.node_id)
+            REF_BIPAR_ID_to_location[entry.node_id] = count
+            count += 1
+    
+    
+    # Create Match, H1, H2, Score, Count
+    K = bdict.num_matches; m = bdict.num_entries
+    H1=[]; H2 =[]; S = np.zeros((m, K)); M = np.zeros((m,K), dtype=int); C = []
+    count = 0
+    for i in range(m):
+        entry = bdict.entries[i].contents
+        H1.append(entry.h1)
+        H2.append(entry.h2)
+        C.append(entry.input_count)
+        
+        # Use -1 if it reaches the maximum td.
+        use_external=False
+        for j in range(K): 
+            if use_external:
+                S[count][j] = 1 # maximum normalized td
+                M[count][j] = -1 # match to external
+            elif (entry.td[j]>=entry.topo_depth-1):
+                use_external=True
+                S[count][j] = 1 # maximum normalized td
+                M[count][j] = -1 # match to external
+            else:
+                S[count][j] = entry.td[j]/(entry.topo_depth-1)
+                M[count][j] = REF_BIPAR_ID_to_location[entry.matched_ids[j]]
+        count += 1
+    
+    
+    
+    return OrganizedTransferResult(TS, REF_BIPAR_ID_to_location, H1, H2, S, M, C, num_trees)
+            
+            
+        
+    
+
 
 def match_score_list(res_ptr: int, id_dict_ref: dict, K: int):
     bdict_arr: BipartitionDictArray = ctypes.cast(res_ptr, ctypes.POINTER(BipartitionDictArray)).contents  

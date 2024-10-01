@@ -861,6 +861,7 @@ class std_risk_prune:
             self.fp = np.sum([1-support for key, support in self.transfer_support.items()]) * self.n_trees
         else:
             self.fp = np.sum([support for key, support in self.transfer_support.items()]) * self.n_trees
+
         # use edge dict
         self.edge_dict = self.trees.edge_dict
         self.trees_bipartition_ints = list(self.edge_dict.keys())
@@ -926,6 +927,7 @@ class std_risk_prune:
         second_matched_bipars = self.second_match_dict[prune_bipar_int]
         second_rematch_bipartitions = {item.split_as_int():item for item in self.trees_bipartitions if item.split_as_int() in second_matched_bipars}
         second_rematch_bipartitions = [second_rematch_bipartitions[item] for item in second_matched_bipars]
+        
 
         if self.normalized:
             fn_diff = np.sum([ (self.rsupp_dict[matched_bipars[i]] - self.second_supp_dict[matched_bipars[i]]) * self.edge_dict[matched_bipars[i]] 
@@ -996,6 +998,7 @@ class std_risk_prune:
             # find risk reduction
             risk_reductions = [self.find_risk_reduction(bipar_int) for bipar_int in bipartition_ints]
             max_risk_reduction_index = np.argmax(risk_reductions)
+            print(f"reduction: {risk_reductions[max_risk_reduction_index]}")
             if risk_reductions[max_risk_reduction_index] <= 0:
                 # risk reduction does not happen, so break
                 break
