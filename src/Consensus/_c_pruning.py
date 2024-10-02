@@ -462,7 +462,7 @@ def c_prune(inittree_file: str, inputtrees_file: str, K=30):
         args = prepare_prune_and_return_newick_args(id_list)
         newick_string = booster_lib.prune_and_return_newick(*args)
         newick_string_decoded = ctypes.cast(newick_string, ctypes.c_char_p).value.decode('utf-8')
-        print(f"Newick string at last: {newick_string_decoded}")
+        # print(f"Newick string at last: {newick_string_decoded}")
         
         booster_lib.free_buffer(newick_string)
         

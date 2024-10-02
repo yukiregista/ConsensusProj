@@ -177,3 +177,7 @@ slurm*
 massif*
 valgrind*
 scripts/
+
+
+#mac
+.DS_Store

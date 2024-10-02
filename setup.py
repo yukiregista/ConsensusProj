@@ -33,9 +33,10 @@ sources = [
 # Define the compilation flags
 # compile_flags = ["-Wall", "-O0", "-g", "-fopenmp", "-fsanitize=leak", "-fPIC", "-DDEBUG", f'-DVERSION="{VERSION}"']
 # compile_flags = ["-Wall", "-O0", "-g", "-fopenmp", "-fsanitize=leak", "-fPIC", "-DNDEBUG", f'-DVERSION="{VERSION}"']
-compile_flags = ["-Wall", "-O3", "-fopenmp", "-fPIC", "-DNDEBUG", f'-DVERSION="{VERSION}"']
+# compile_flags = ["-Wall", "-O3", "-fopenmp", "-fPIC", "-DNDEBUG", f'-DVERSION="{VERSION}"']
 compile_flags = ["-Wall", "-O3", "-g", "-fopenmp", "-fPIC", "-DNDEBUG", f'-DVERSION="{VERSION}"'] # for using massif
-link_flags = ["-lm", "-fopenmp"]
+# compile_flags = ["-Wall", "-O0", "-g", "-fopenmp", "-fPIC", "-DNDEBUG", f'-DVERSION="{VERSION}"'] # for using massif
+link_flags = ["-lm", "-fopenmp", "-ltcmalloc", "-lprofiler"]
 
 booster_extension = Extension(
     "booster",  # Name of the extension
