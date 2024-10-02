@@ -211,6 +211,10 @@ def prepare_prune_and_return_newick(booster_lib: ctypes.CDLL):
         ctypes.POINTER(ctypes.c_int),
         ctypes.c_int
     ]
+    booster_lib.prune_and_return_newick.restype = ctypes.POINTER(ctypes.c_char)
+    
+    booster_lib.free_buffer.argtypes = [ctypes.c_char_p]
+    booster_lib.free_buffer.restype = None
     return booster_lib
 
 
