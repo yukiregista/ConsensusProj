@@ -454,6 +454,8 @@ def c_prune(inittree_file: str, inputtrees_file: str, K=30):
         pruning_end = time.perf_counter()
         print(f"Pruning ended in {pruning_end - first_comp_end}")
         
+        print(f"Number of recomputations: {len(pruning_vars.use_K) - np.sum(pruning_vars.use_K)}")
+        
         # Show Final Result: print the tree to stderr
         loc_to_id = dict()
         for id, loc in pruning_vars.OSR.REF_BIPAR_ID_to_location.items():
@@ -462,7 +464,7 @@ def c_prune(inittree_file: str, inputtrees_file: str, K=30):
         args = prepare_prune_and_return_newick_args(id_list)
         newick_string = booster_lib.prune_and_return_newick(*args)
         newick_string_decoded = ctypes.cast(newick_string, ctypes.c_char_p).value.decode('utf-8')
-        print(f"Newick string at last: {newick_string_decoded}")
+        # print(f"Newick string at last: {newick_string_decoded}")
         
         booster_lib.free_buffer(newick_string)
         
