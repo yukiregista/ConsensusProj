@@ -413,7 +413,7 @@ def c_prune(inittree_file: str, inputtrees_file: str, K=30):
     # m.start() # 開始
     # Get the current process using psutil
     process = psutil.Process(os.getpid())
-    report_memory(process, "memory used before anything")
+    # report_memory(process, "memory used before anything")
     
     booster_lib = load_booster()
     booster_lib = prepare_tbe_support_and_match(booster_lib)
