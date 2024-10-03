@@ -478,4 +478,4 @@ def c_prune(inittree_file: str, inputtrees_file: str, K=30):
 
     
     
-    return final_tree
+    return newick_string_decoded
