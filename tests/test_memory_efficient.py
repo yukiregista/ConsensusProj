@@ -271,3 +271,8 @@ def test_c_prune(K=20):
     #Consensus.c_prune(inittree_file=files('Consensus.example_data').joinpath('astral_GTRgamma.tre'), inputtrees_file=files('Consensus.example_data').joinpath('boot10.tre'), K=K)
     Consensus.c_prune(inittree_file=files('Consensus.example_data').joinpath('astral_GTRgamma.tre'), inputtrees_file=files('Consensus.example_data').joinpath('boot10.tre'), K=2)
     
+
+def test_c_prune_unscaled(K=20):
+    #Consensus.c_prune(inittree_file=files('Consensus.example_data').joinpath('astral_GTRgamma.tre'), inputtrees_file=files('Consensus.example_data').joinpath('boot10.tre'), K=K)
+    pruned = Consensus.c_prune(inittree_file=files('Consensus.example_data').joinpath('astral_GTRgamma.tre'), inputtrees_file=files('Consensus.example_data').joinpath('boot10.tre'), K=K, scaled=False)
+    print(pruned)

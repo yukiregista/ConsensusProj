@@ -69,7 +69,7 @@ def transfer_distance(a: tuple, b: tuple, bits: int, n_taxa: int):
     return min(hamdist1, hamdist2)
         
 
-def recompute_td(osr: OrganizedTransferResult, bipar_id: int, booster_lib: ctypes.CDLL):
+def recompute_td(osr: OrganizedTransferResult, bipar_id: int, booster_lib: ctypes.CDLL, scaled=True):
     h1 = osr.H1[bipar_id]
     h2 = osr.H2[bipar_id]
     # if bipar_id==75: print("h1, h2:", h1, h2)
@@ -85,13 +85,19 @@ def recompute_td(osr: OrganizedTransferResult, bipar_id: int, booster_lib: ctype
         else:  
             bipar_loc = osr.REF_BIPAR_ID_to_location[ tda.td[i].contents.node_id ]
             node_id_list.append( bipar_loc )
-            tda_dict[bipar_loc] = (tda.td[i].contents.dist / (tda.topo_depth-1))
+            if scaled:
+                tda_dict[bipar_loc] = (tda.td[i].contents.dist / (tda.topo_depth-1))
+            else:
+                tda_dict[bipar_loc] = tda.td[i].contents.dist 
 
 
     if (len(node_id_list)) == 0:
         # Others are all filled with externals
         new_M = np.concatenate([osr.M[bipar_id], [-1 for _ in range(tda.n_elements - len(osr.M[bipar_id]))]]).astype(int)
-        new_S = np.concatenate([osr.S[bipar_id], [1 for _ in range(tda.n_elements - len(osr.M[bipar_id]))]])
+        if scaled:
+            new_S = np.concatenate([osr.S[bipar_id], [1 for _ in range(tda.n_elements - len(osr.M[bipar_id]))]])
+        else:
+            new_S = np.concatenate([osr.S[bipar_id], [tda.topo_depth - 1 for _ in range(tda.n_elements - len(osr.M[bipar_id]))]])
     else:
         first_K_IDS = set(osr.M[bipar_id])
         IDs_to_add = [item for item in node_id_list if item not in first_K_IDS]
@@ -102,7 +108,10 @@ def recompute_td(osr: OrganizedTransferResult, bipar_id: int, booster_lib: ctype
         S_mid = [Values[x] for x in order]
         rem_elements = tda.n_elements - len(osr.M[bipar_id]) - len(M_mid)
         new_M = np.concatenate([ osr.M[bipar_id], M_mid, [-1 for _ in range(rem_elements)] ]).astype(int)
-        new_S = np.concatenate([ osr.S[bipar_id], S_mid, [1 for _ in range(rem_elements)] ])
+        if scaled:
+            new_S = np.concatenate([ osr.S[bipar_id], S_mid, [1 for _ in range(rem_elements)] ])
+        else:
+            new_S = np.concatenate([ osr.S[bipar_id], S_mid, [tda.topo_depth-1 for _ in range(rem_elements)] ])
     
     return RecomputationResults(new_M, new_S)
             
@@ -127,7 +136,7 @@ def compute_all_normalized_td(bipar, matched, K, reverse_id_ref, bipar_val, topo
     return ids, ns
     
     
-def renew_match(pv: PruningVars, b: int):
+def renew_match(pv: PruningVars, b: int, scaled=True):
     """
         renew match by pruning b.
     """
@@ -150,7 +159,7 @@ def renew_match(pv: PruningVars, b: int):
                     if now_rank > pv.K-1: # Then do recomputation
                         # recomputation
                         
-                        pv.RECOMP[bipar_id] = recompute_td(pv.OSR, bipar_id, pv.booster_lib)
+                        pv.RECOMP[bipar_id] = recompute_td(pv.OSR, bipar_id, pv.booster_lib, scaled=scaled)
                         pv.use_K[bipar_id] = False
                     elif pv.OSR.M[bipar_id, now_rank] in pv.pruned: # Then proceed to next rank
                         # it is already pruned
@@ -185,7 +194,7 @@ def renew_match(pv: PruningVars, b: int):
             if pv.use_K[bipar_id]:
                 if now_rank > pv.K-1: # Then do recomputation
                     # recomputation
-                    pv.RECOMP[bipar_id] = recompute_td(pv.OSR, bipar_id, pv.booster_lib)
+                    pv.RECOMP[bipar_id] = recompute_td(pv.OSR, bipar_id, pv.booster_lib, scaled=scaled)
                     pv.use_K[bipar_id] = False
                 elif pv.OSR.M[bipar_id, now_rank] in pv.pruned: # Then proceed to next rank
                     now_rank += 1
@@ -222,18 +231,15 @@ def renew_match(pv: PruningVars, b: int):
         
         
         
-def greedy_pruning(pv: PruningVars):
-    from copy import deepcopy
-    old_L = deepcopy(pv.L)
+def greedy_pruning(pv: PruningVars, scaled=True):
     while True:
-        old_L = deepcopy(pv.L)
         best_index = np.argmax(pv.L)
         # print(f"Pruning {best_index} with loss reduction: {pv.L[best_index]}. Loss of 77: {pv.L[77]}.")
         if (pv.L[best_index] <= 0): break # No edges induce loss reduction. Exiting the while loop
         # Otherwise, prune best_index
         pv.E.remove(best_index)
         pv.pruned.add(best_index)
-        renew_match(pv, best_index)
+        renew_match(pv, best_index, scaled=scaled)
     
     
 
@@ -351,10 +357,13 @@ def greedy_pruning(pv: PruningVars):
 
 
 
-def _prune_first_comp(res: OrganizedTransferResult, booster_lib: ctypes.CDLL):
+def _prune_first_comp(res: OrganizedTransferResult, booster_lib: ctypes.CDLL, scaled=True):
     # False Positive Loss
-    FP_loss = (1-np.array(res.TS)) * res.num_alt_trees
-    
+    if scaled:
+        FP_loss = (1-np.array(res.TS)) * res.num_alt_trees
+    else:
+        FP_loss = (1-np.array(res.TS)) * (np.array(res.TD)-1) * res.num_alt_trees
+        
     # False Negative Losses and W1, W2
     W1 = [set() for _ in range(len(res.TS))]
     W2 = [set() for _ in range(len(res.TS))]
@@ -405,7 +414,7 @@ def report_memory(process, print_string):
     rss_memory = memory_info.rss  # Resident Set Size: Memory currently in use by the process (in bytes)
     print(f"{print_string}: {rss_memory / (1024 ** 3):.2f} GB")
 
-def c_prune(inittree_file: str, inputtrees_file: str, K=30):
+def c_prune(inittree_file: str, inputtrees_file: str, K=30, scaled=True):
     # tracemalloc.start()
     # event = threading.Event()
     # initial_time = time.time()
@@ -437,12 +446,12 @@ def c_prune(inittree_file: str, inputtrees_file: str, K=30):
         first_done += 1
 
         # copying results: organize_support_and_match
-        organized_results: OrganizedTransferResult = organize_support_and_match(res_ptr)
+        organized_results: OrganizedTransferResult = organize_support_and_match(res_ptr, scaled=scaled)
         end = time.perf_counter()
         print(f"organizing time with K={K}: {end - middle}")
         
         # Step2: initial gain and initializations
-        pruning_vars: PruningVars = _prune_first_comp(organized_results, booster_lib)
+        pruning_vars: PruningVars = _prune_first_comp(organized_results, booster_lib, scaled=scaled)
         first_comp_end = time.perf_counter()
         print(f"First computation ended in {first_comp_end - end}")
         
@@ -450,7 +459,7 @@ def c_prune(inittree_file: str, inputtrees_file: str, K=30):
         print(f"Initial number of branches {len(pruning_vars.E)}")
         
         # Step3: Greedy Pruning
-        greedy_pruning(pruning_vars)
+        greedy_pruning(pruning_vars, scaled=scaled)
         pruning_end = time.perf_counter()
         print(f"Pruning ended in {pruning_end - first_comp_end}")
         

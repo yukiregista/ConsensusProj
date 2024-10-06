@@ -80,8 +80,8 @@ class BipartitionSupportHash(ctypes.Structure):
         ("is_external", ctypes.c_bool),
         ("support", ctypes.c_double),
         ("node_id", ctypes.c_int),
-        ("bipartition", ctypes.POINTER(ctypes.c_uint))
-    ]
+        ("topo_depth", ctypes.c_int)
+        ]
     
 class BipartitionSupportArrayHash(ctypes.Structure):
     _fields_ = [
@@ -118,10 +118,11 @@ class transferDistanceAll(ctypes.Structure):
 
 
 class OrganizedTransferResult():
-    def __init__(self, TS: list, REF_BIPAR_ID_to_location: dict, H1: list, H2: list, S: np.ndarray, M: np.ndarray, C: list, num_alt_trees: int):
+    def __init__(self, TS: list, REF_BIPAR_ID_to_location: dict, TD: list, H1: list, H2: list, S: np.ndarray, M: np.ndarray, C: list, num_alt_trees: int):
         self.TS = TS # Tranfer Supports
         # Dictionary containing bipar_id of reference tree's internal bipartition as keys, and its location in the TS array as values
         self.REF_BIPAR_ID_to_location = REF_BIPAR_ID_to_location
+        self.TD = TD # Topological Depth.
         self.H1 = H1 # stores hash h1 of input bipartitions
         self.H2 = H2 # stores hash h2 of input bipartitions
         self.S = S # stores transfer distance (either scaled or unscaled) to the first K best matches: size m \times K.
@@ -273,18 +274,20 @@ def prepare_prune_and_return_newick_args(node_ids: list[int]):
 def _generate_bitmask(bits: int)-> int:
     return (1<<bits) - 1
 
-def organize_support_and_match(res_ptr) -> OrganizedTransferResult:
+def organize_support_and_match(res_ptr, scaled=True) -> OrganizedTransferResult:
     bdict = res_ptr.contents.bdict.contents
     bsupp_arr = res_ptr.contents.bsupp_arr.contents
     num_trees = bsupp_arr.num_alt_trees
     
     # Create TS, H1_REF, H2_REF array. 
     TS = []; REF_BIPAR_IDS=[]; REF_BIPAR_ID_to_location = dict()
+    TD = []
     count = 0
     for i in range(bsupp_arr.num_entries):
         entry = bsupp_arr.bipartition_supports[i].contents
         if not entry.is_external:
             TS.append(entry.support)
+            TD.append(entry.topo_depth)
             REF_BIPAR_IDS.append(entry.node_id)
             REF_BIPAR_ID_to_location[entry.node_id] = count
             count += 1
@@ -302,22 +305,35 @@ def organize_support_and_match(res_ptr) -> OrganizedTransferResult:
         
         # Use -1 if it reaches the maximum td.
         use_external=False
-        for j in range(K): 
-            if use_external:
-                S[count][j] = 1 # maximum normalized td
-                M[count][j] = -1 # match to external
-            elif (entry.td[j]>=entry.topo_depth-1):
-                use_external=True
-                S[count][j] = 1 # maximum normalized td
-                M[count][j] = -1 # match to external
-            else:
-                S[count][j] = entry.td[j]/(entry.topo_depth-1)
-                M[count][j] = REF_BIPAR_ID_to_location[entry.matched_ids[j]]
+        if scaled:
+            for j in range(K): 
+                if use_external:
+                    S[count][j] = 1 # maximum normalized td
+                    M[count][j] = -1 # match to external
+                elif (entry.td[j]>=entry.topo_depth-1):
+                    use_external=True
+                    S[count][j] = 1 # maximum normalized td
+                    M[count][j] = -1 # match to external
+                else:
+                    S[count][j] = entry.td[j]/(entry.topo_depth-1)
+                    M[count][j] = REF_BIPAR_ID_to_location[entry.matched_ids[j]]
+        else:
+            for j in range(K): 
+                if use_external:
+                    S[count][j] = entry.topo_depth-1 # maximum normalized td
+                    M[count][j] = -1 # match to external
+                elif (entry.td[j]>=entry.topo_depth-1):
+                    use_external=True
+                    S[count][j] = entry.topo_depth-1 # maximum normalized td
+                    M[count][j] = -1 # match to external
+                else:
+                    S[count][j] = entry.td[j]
+                    M[count][j] = REF_BIPAR_ID_to_location[entry.matched_ids[j]]
         count += 1
     
     
     
-    return OrganizedTransferResult(TS, REF_BIPAR_ID_to_location, H1, H2, S, M, C, num_trees)
+    return OrganizedTransferResult(TS, REF_BIPAR_ID_to_location, TD, H1, H2, S, M, C, num_trees)
             
             
         
