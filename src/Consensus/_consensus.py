@@ -573,7 +573,7 @@ class Tree_with_support(dendropy.Tree):
             if self.branch_support[splitint] > threshold:
                 bipars.append(node.bipartition)
                 branch_support[splitint] = self.branch_support[splitint]
-                if transfer_support is not None:
+                if self.transfer_support is not None:
                     transfer_support[splitint] = self.transfer_support[splitint]
         thresholded = Tree_with_support(dendropy.Tree.from_bipartition_encoding(bipars, self.taxon_namespace), branch_support = branch_support, transfer_support = transfer_support)
         return thresholded
@@ -589,7 +589,7 @@ class Tree_with_support(dendropy.Tree):
             splitint = node.bipartition.split_as_int()
             if self.transfer_support[splitint] > threshold:
                 bipars.append(node.bipartition)
-                if branch_support is not None:
+                if self.branch_support is not None:
                     branch_support[splitint] = self.branch_support[splitint]
                 transfer_support[splitint] = self.transfer_support[splitint]
         thresholded = Tree_with_support(dendropy.Tree.from_bipartition_encoding(bipars, self.taxon_namespace), branch_support = branch_support, transfer_support = transfer_support)
